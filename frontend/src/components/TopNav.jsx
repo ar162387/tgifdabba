@@ -23,25 +23,25 @@ const TopNav = ({ onNavigate, currentPage }) => {
         <div className="max-w-7xl mx-auto px-8 lg:px-12">
           <div className="flex justify-between items-center">
             {/* Left wordmark - Desktop */}
-            <div className={`font-bold text-3xl uppercase tracking-tight hidden md:block transition-colors duration-300 ${textColor}`}>
+            <button 
+              onClick={() => handleNavigation('home')}
+              className={`font-bold text-3xl uppercase tracking-tight hidden md:block transition-colors duration-300 ${textColor} hover:opacity-80`}
+            >
               TGIF DABBA
-            </div>
+            </button>
             
             {/* Left wordmark - Mobile */}
-            <div className={`font-bold text-2xl uppercase tracking-tight md:hidden transition-colors duration-300 ${
-              isMobileMenuOpen ? 'text-charcoal' : textColor
-            }`}>
+            <button 
+              onClick={() => handleNavigation('home')}
+              className={`font-bold text-2xl uppercase tracking-tight md:hidden transition-colors duration-300 ${
+                isMobileMenuOpen ? 'text-charcoal' : textColor
+              } hover:opacity-80`}
+            >
               TGIF DABBA
-            </div>
+            </button>
             
             {/* Desktop navigation links */}
             <div className="hidden md:flex items-center space-x-10">
-              <button 
-                onClick={() => handleNavigation('home')}
-                className={`${textColor} uppercase text-base font-medium tracking-wide hover:underline decoration-2 underline-offset-4 transition-all`}
-              >
-                HOME
-              </button>
               <button 
                 onClick={() => handleNavigation('menu')}
                 className={`${textColor} uppercase text-base font-medium tracking-wide hover:underline decoration-2 underline-offset-4 transition-all`}
@@ -49,22 +49,16 @@ const TopNav = ({ onNavigate, currentPage }) => {
                 MENU
               </button>
               <button 
-                onClick={() => handleNavigation('recipes')}
-                className={`${textColor} uppercase text-base font-medium tracking-wide hover:underline decoration-2 underline-offset-4 transition-all`}
-              >
-                RECIPES
-              </button>
-              <button 
                 onClick={() => handleNavigation('about')}
                 className={`${textColor} uppercase text-base font-medium tracking-wide hover:underline decoration-2 underline-offset-4 transition-all`}
               >
-                ABOUT
+                ABOUT US
               </button>
               <button 
                 onClick={() => handleNavigation('contact')}
                 className={`${textColor} uppercase text-base font-medium tracking-wide hover:underline decoration-2 underline-offset-4 transition-all`}
               >
-                CONTACT
+                CONTACT US
               </button>
               <div className="flex items-center space-x-2">
                 <span className={`${textColor} uppercase text-base font-medium tracking-wide`}>BASKET</span>
@@ -113,34 +107,22 @@ const TopNav = ({ onNavigate, currentPage }) => {
       }`}>
         <div className="flex flex-col items-center justify-center h-full space-y-8">
           <button 
-            onClick={() => handleNavigation('home')}
-            className="text-charcoal text-2xl font-bold uppercase tracking-wide hover:opacity-80 transition-opacity"
-          >
-            HOME
-          </button>
-          <button 
             onClick={() => handleNavigation('menu')}
             className="text-charcoal text-2xl font-bold uppercase tracking-wide hover:opacity-80 transition-opacity"
           >
             MENU
           </button>
           <button 
-            onClick={() => handleNavigation('recipes')}
-            className="text-charcoal text-2xl font-bold uppercase tracking-wide hover:opacity-80 transition-opacity"
-          >
-            RECIPES
-          </button>
-          <button 
             onClick={() => handleNavigation('about')}
             className="text-charcoal text-2xl font-bold uppercase tracking-wide hover:opacity-80 transition-opacity"
           >
-            ABOUT
+            ABOUT US
           </button>
           <button 
             onClick={() => handleNavigation('contact')}
             className="text-charcoal text-2xl font-bold uppercase tracking-wide hover:opacity-80 transition-opacity"
           >
-            CONTACT
+            CONTACT US
           </button>
         </div>
       </div>

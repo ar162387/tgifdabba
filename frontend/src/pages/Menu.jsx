@@ -219,16 +219,28 @@ const Menu = () => {
               </div>
             </div>
 
-            {/* Delivery Timing */}
-            <div className="bg-white/20 backdrop-blur-sm rounded-lg p-4 mb-8 max-w-md mx-auto">
-              <div className="text-center">
-                <p className="text-sm text-charcoal/70 mb-2">Estimated Time</p>
-                <p className="text-xl font-bold text-charcoal">
-                  {deliveryTimings[deliveryOption].eta}
-                </p>
-                <p className="text-sm text-charcoal/70 mt-2">
-                  Available: {deliveryTimings[deliveryOption].windows.join(' | ')}
-                </p>
+            {/* Delivery Information */}
+            <div className="bg-white/20 backdrop-blur-sm rounded-lg p-6 mb-8 max-w-2xl mx-auto">
+              <div className="text-center space-y-4">
+                <div>
+                  <p className="text-sm font-medium text-charcoal/70 mb-2">Delivery Areas</p>
+                  <p className="text-lg font-bold text-charcoal">
+                    BR1 - BR7, Orpington
+                  </p>
+                </div>
+                
+                <div>
+                  <p className="text-sm font-medium text-charcoal/70 mb-2">Free Delivery</p>
+                  <p className="text-lg font-bold text-charcoal">
+                    £20 minimum order within 3 miles
+                  </p>
+                </div>
+                
+                <div className="pt-2 border-t border-charcoal/20">
+                  <p className="text-xs text-charcoal/60 italic">
+                    Orders for today will be taken and delivered until 12:00 PM
+                  </p>
+                </div>
               </div>
             </div>
           </div>
