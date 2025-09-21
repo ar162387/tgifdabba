@@ -43,6 +43,21 @@ app.get('/health', (req, res) => {
   });
 });
 
+// Root endpoint
+app.get('/', (req, res) => {
+  res.json({
+    success: true,
+    message: 'TGIF Dabba Backend API',
+    version: '1.0.0',
+    endpoints: {
+      health: '/health',
+      api: '/api',
+      docs: 'API documentation coming soon'
+    },
+    timestamp: new Date().toISOString()
+  });
+});
+
 // API routes
 app.use('/api/cms/auth', authRoutes);
 app.use('/api/cms/items', itemRoutes);
