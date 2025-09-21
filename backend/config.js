@@ -21,7 +21,9 @@ export const config = {
     origin: [
       'http://localhost:5173',
       'https://tgifdabba.onrender.com',
-      'https://tgifdabba.onrender.com/'
+      'https://tgifdabba.onrender.com/',
+      'https://tgifdabba.co.uk',
+      'https://www.tgifdabba.co.uk'
     ],
     credentials: true,
     optionsSuccessStatus: 200
