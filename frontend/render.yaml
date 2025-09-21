@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: tgifdabba-frontend
+    env: static
+    buildCommand: npm run build
+    staticPublishPath: ./dist
+    nginxConfig: ./nginx.conf
+    envVars:
+      - key: NODE_ENV
+        value: production
