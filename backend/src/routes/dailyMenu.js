@@ -8,7 +8,7 @@ import {
   publishDailyMenu
 } from '../controllers/dailyMenuController.js';
 import { authenticateToken } from '../middleware/auth.js';
-import { validateDailyMenu } from '../middleware/validate.js';
+import { validateDailyMenu, validateDailyMenuUpdate } from '../middleware/validate.js';
 
 const router = express.Router();
 
@@ -19,7 +19,7 @@ router.use(authenticateToken);
 router.get('/', getAllDailyMenus);
 router.get('/day/:day', getDailyMenuByDay);
 router.post('/', validateDailyMenu, createDailyMenu);
-router.put('/:id', validateDailyMenu, updateDailyMenu);
+router.put('/:id', validateDailyMenuUpdate, updateDailyMenu);
 router.delete('/:id', deleteDailyMenu);
 router.patch('/:id/publish', publishDailyMenu);
 

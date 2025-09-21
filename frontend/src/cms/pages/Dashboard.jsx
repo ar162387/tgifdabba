@@ -1,4 +1,5 @@
-import React, { useMemo, useCallback } from 'react';
+import React, { useMemo, useCallback, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   Package, 
   ShoppingCart, 
@@ -10,11 +11,31 @@ import {
 } from 'lucide-react';
 import { StatCardSkeleton } from '../components/ui/Skeleton';
 import { useDashboardStats, useRecentActivity } from '../hooks/useDashboard';
+import realtimeService from '../services/realtimeService';
+import soundManager from '../utils/soundUtils';
+import toastNotificationService from '../components/OrderToast';
 
 const Dashboard = () => {
+  const navigate = useNavigate();
+  
   // TanStack Query hooks
   const { data: statsData, isLoading: statsLoading, error: statsError } = useDashboardStats();
   const { data: recentActivity, isLoading: activityLoading, error: activityError } = useRecentActivity();
+
+  // Set up realtime listeners for new orders
+  useEffect(() => {
+    const unsubscribeOrderCreated = realtimeService.subscribe('order.created', (orderData) => {
+      // Show toast notification
+      toastNotificationService.showOrderNotification(orderData);
+      
+      // Play notification sound
+      soundManager.playNotificationSound();
+    });
+
+    return () => {
+      unsubscribeOrderCreated();
+    };
+  }, []);
 
   // Memoized stat cards configuration
   const statCards = useMemo(() => [
@@ -27,14 +48,14 @@ const Dashboard = () => {
     },
     {
       title: 'Pending Orders',
-      value: statsData?.orders?.byStatus?.pending?.count || 0,
+      value: statsData?.orders?.pendingOrders || 0,
       icon: Clock,
       color: 'bg-yellow-500',
       change: '+5%'
     },
     {
-      title: 'Delivered Orders',
-      value: statsData?.orders?.byStatus?.delivered?.count || 0,
+      title: 'Completed Orders',
+      value: (statsData?.orders?.completedOrders || 0),
       icon: CheckCircle,
       color: 'bg-green-500',
       change: '+8%'
@@ -143,15 +164,24 @@ const Dashboard = () => {
       <div className="bg-white rounded-lg shadow p-6">
         <h3 className="text-lg font-medium text-gray-900 mb-4">Quick Actions</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <button className="flex items-center space-x-3 p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+          <button 
+            onClick={() => navigate('/cms/items')}
+            className="flex items-center space-x-3 p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+          >
             <Package className="h-5 w-5 text-orange-500" />
             <span className="text-sm font-medium">Add New Item</span>
           </button>
-          <button className="flex items-center space-x-3 p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+          <button 
+            onClick={() => navigate('/cms/daily-menu')}
+            className="flex items-center space-x-3 p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+          >
             <Calendar className="h-5 w-5 text-orange-500" />
             <span className="text-sm font-medium">Update Menu</span>
           </button>
-          <button className="flex items-center space-x-3 p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+          <button 
+            onClick={() => navigate('/cms/orders')}
+            className="flex items-center space-x-3 p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+          >
             <ShoppingCart className="h-5 w-5 text-orange-500" />
             <span className="text-sm font-medium">View Orders</span>
           </button>

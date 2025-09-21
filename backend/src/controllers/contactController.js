@@ -15,8 +15,6 @@ export const getAllContacts = async (req, res, next) => {
     if (search) {
       query.$or = [
         { name: { $regex: search, $options: 'i' } },
-        { email: { $regex: search, $options: 'i' } },
-        { subject: { $regex: search, $options: 'i' } },
         { message: { $regex: search, $options: 'i' } }
       ];
     }

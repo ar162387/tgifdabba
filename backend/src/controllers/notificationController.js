@@ -5,7 +5,7 @@ import logger from '../utils/logger.js';
 export const getNotificationCounters = async (req, res, next) => {
   try {
     const [ordersNew, contactsNew] = await Promise.all([
-      Order.countDocuments({ read: false }),
+      Order.countDocuments({ status: 'pending' }),
       Contact.countDocuments({ read: false })
     ]);
 
@@ -33,8 +33,8 @@ export const getRecentActivity = async (req, res, next) => {
       Order.find()
         .sort({ createdAt: -1 })
         .limit(parseInt(limit))
-        .populate('items.item', 'name')
-        .select('customer status totals createdAt'),
+        .populate('items.itemId', 'name')
+        .select('customer status pricing createdAt'),
       Contact.find()
         .sort({ createdAt: -1 })
         .limit(parseInt(limit))
@@ -46,8 +46,8 @@ export const getRecentActivity = async (req, res, next) => {
       ...recentOrders.map(order => ({
         type: 'order',
         id: order._id,
-        title: `New order from ${order.customer.name}`,
-        subtitle: `$${order.totals.total} - ${order.status}`,
+        title: `New order from ${order.customer.email}`,
+        subtitle: `$${order.pricing.total} - ${order.status}`,
         timestamp: order.createdAt,
         read: order.read
       })),

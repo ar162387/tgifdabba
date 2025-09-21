@@ -14,7 +14,7 @@ const Login = () => {
   
   const { register, handleSubmit, formState: { errors } } = useForm();
   
-  const from = location.state?.from?.pathname || '/cms/dashboard';
+  const from = location.state?.from?.pathname || 'dashboard';
 
   // Redirect if already authenticated
   if (authService.isAuthenticated()) {

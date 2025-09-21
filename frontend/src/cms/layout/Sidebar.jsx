@@ -12,27 +12,27 @@ import {
 const Sidebar = () => {
   const menuItems = [
     {
-      path: '/cms/dashboard',
+      path: 'dashboard',
       icon: LayoutDashboard,
       label: 'Dashboard'
     },
     {
-      path: '/cms/items',
+      path: 'items',
       icon: Package,
       label: 'Items'
     },
     {
-      path: '/cms/daily-menu',
+      path: 'daily-menu',
       icon: Calendar,
       label: 'Daily Menu'
     },
     {
-      path: '/cms/orders',
+      path: 'orders',
       icon: ShoppingCart,
       label: 'Orders'
     },
     {
-      path: '/cms/contacts',
+      path: 'contacts',
       icon: Users,
       label: 'Contacts'
     }

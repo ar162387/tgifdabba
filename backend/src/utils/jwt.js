@@ -8,5 +8,15 @@ export const generateToken = (payload) => {
 };
 
 export const verifyToken = (token) => {
-  return jwt.verify(token, config.jwtSecret);
+  try {
+    return jwt.verify(token, config.jwtSecret);
+  } catch (error) {
+    if (error.name === 'TokenExpiredError') {
+      throw new Error('Token expired');
+    } else if (error.name === 'JsonWebTokenError') {
+      throw new Error('Invalid token');
+    } else {
+      throw new Error('Token verification failed');
+    }
+  }
 };

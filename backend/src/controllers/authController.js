@@ -57,9 +57,19 @@ export const getMe = async (req, res, next) => {
       });
     }
 
+    // Generate a new token for token refresh
+    const token = generateToken({
+      userId: user._id,
+      email: user.email,
+      role: user.role
+    });
+
     res.json({
       success: true,
-      data: user.toJSON()
+      data: {
+        user: user.toJSON(),
+        token
+      }
     });
   } catch (error) {
     logger.error('Get user profile error', error);

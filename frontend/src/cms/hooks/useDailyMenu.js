@@ -21,11 +21,11 @@ export const useDailyMenus = () => {
   });
 };
 
-// Get items for menu selection
+// Get items for menu selection - show ALL items in CMS regardless of active status
 export const useMenuItems = () => {
   return useQuery({
     queryKey: ['items', 'menu'],
-    queryFn: () => itemService.getAllItems({ limit: 100, active: true }),
+    queryFn: () => itemService.getAllItems({ limit: 100 }), // Remove active filter for CMS
     select: (data) => data.data.items,
     staleTime: 10 * 60 * 1000, // 10 minutes
   });

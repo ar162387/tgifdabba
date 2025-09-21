@@ -16,6 +16,20 @@ export const authService = {
     return response.data;
   },
 
+  refreshToken: async () => {
+    try {
+      const response = await apiClient.get('/auth/me');
+      if (response.data && response.data.token) {
+        this.setToken(response.data.token);
+        return response.data.token;
+      }
+      throw new Error('No token received');
+    } catch (error) {
+      console.error('Token refresh failed:', error);
+      throw error;
+    }
+  },
+
   updateProfile: async (profileData) => {
     const response = await apiClient.patch('/auth/profile', profileData);
     return response.data;

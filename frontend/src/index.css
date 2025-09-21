@@ -14,12 +14,17 @@
 .bg-charcoal { background-color: #2C2C2C !important; }
 .bg-soft-white { background-color: #FAFAFA !important; }
 .bg-light-grey { background-color: #E5E5E5 !important; }
+.bg-black { background-color: #000000 !important; }
 
 .text-primary-orange { color: #fb7500 !important; }
 .text-accent-yellow { color: #FFD166 !important; }
 .text-charcoal { color: #2C2C2C !important; }
 .text-soft-white { color: #FAFAFA !important; }
 .text-light-grey { color: #E5E5E5 !important; }
+.text-black { color: #000000 !important; }
+.text-white { color: #ffffff !important; }
+
+.border-black { border-color: #000000 !important; }
 
 .from-primary-orange { --tw-gradient-from: #fb7500 var(--tw-gradient-from-position) !important; }
 .via-accent-yellow { --tw-gradient-via: #FFD166 var(--tw-gradient-via-position) !important; }
@@ -163,5 +168,72 @@ html {
 .shop-sauce-btn:active {
   transform: translateY(0);
   box-shadow: 0 2px 6px rgba(255, 209, 102, 0.2);
+}
+
+/* Toast Notification Styles */
+.toast-notification {
+  background-color: #ffffff !important;
+  border: 1px solid #e5e7eb !important;
+  border-radius: 8px !important;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05) !important;
+  max-width: 400px !important;
+  min-width: 320px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+.toast-notification .toast-content {
+  background-color: #ffffff !important;
+  border-radius: 8px !important;
+  padding: 12px !important;
+}
+
+/* Order Toast Specific Styles */
+.order-toast {
+  background-color: #ffffff !important;
+  border: 1px solid #e5e7eb !important;
+  border-radius: 8px !important;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05) !important;
+  max-width: 400px !important;
+  min-width: 320px !important;
+}
+
+.order-toast .toast-header {
+  background-color: #ffffff !important;
+  border-bottom: 1px solid #f3f4f6 !important;
+  padding: 12px !important;
+  border-radius: 8px 8px 0 0 !important;
+}
+
+.order-toast .toast-body {
+  background-color: #ffffff !important;
+  padding: 12px !important;
+  border-radius: 0 0 8px 8px !important;
+}
+
+/* Ensure toast container has proper background */
+[data-sonner-toaster] {
+  background-color: transparent !important;
+}
+
+[data-sonner-toast] {
+  background-color: #ffffff !important;
+  border: 1px solid #e5e7eb !important;
+  border-radius: 8px !important;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05) !important;
+}
+
+/* React Hot Toast specific styles */
+.react-hot-toast {
+  background-color: #ffffff !important;
+  border: 1px solid #e5e7eb !important;
+  border-radius: 8px !important;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05) !important;
+  color: #1f2937 !important;
+}
+
+.react-hot-toast > div {
+  background-color: #ffffff !important;
+  border-radius: 8px !important;
 }
 

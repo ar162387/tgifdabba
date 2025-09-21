@@ -12,9 +12,13 @@ import logger from './utils/logger.js';
 import authRoutes from './routes/auth.js';
 import itemRoutes from './routes/items.js';
 import dailyMenuRoutes from './routes/dailyMenu.js';
+import publicDailyMenuRoutes from './routes/publicDailyMenu.js';
 import orderRoutes from './routes/orders.js';
 import contactRoutes from './routes/contacts.js';
+import publicContactRoutes from './routes/publicContact.js';
 import notificationRoutes from './routes/notifications.js';
+import realtimeRoutes from './routes/realtime.js';
+import stripeRoutes from './routes/stripe.js';
 
 const app = express();
 
@@ -46,6 +50,13 @@ app.use('/api/cms/daily-menu', dailyMenuRoutes);
 app.use('/api/cms/orders', orderRoutes);
 app.use('/api/cms/contacts', contactRoutes);
 app.use('/api/cms/notifications', notificationRoutes);
+app.use('/api/cms/realtime', realtimeRoutes);
+
+// Public API routes (no authentication required)
+app.use('/api/daily-menu', publicDailyMenuRoutes);
+app.use('/api/contact', publicContactRoutes);
+app.use('/api/orders', orderRoutes);
+app.use('/api/stripe', stripeRoutes);
 
 // Error handling middleware
 app.use(notFound);

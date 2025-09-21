@@ -5,10 +5,13 @@ import {
   createItem,
   updateItem,
   deleteItem,
-  toggleItemStatus
+  toggleItemStatus,
+  checkItemUsage
 } from '../controllers/itemController.js';
 import { authenticateToken } from '../middleware/auth.js';
 import { validateItem } from '../middleware/validate.js';
+import { uploadSingleImage, handleUploadError } from '../middleware/upload.js';
+import { realtimeLimiter } from '../middleware/rateLimit.js';
 
 const router = express.Router();
 
@@ -16,10 +19,11 @@ const router = express.Router();
 router.use(authenticateToken);
 
 // Item routes
-router.get('/', getAllItems);
+router.get('/', realtimeLimiter, getAllItems); // Use lenient rate limiter for frequent polling
 router.get('/:id', getItemById);
-router.post('/', validateItem, createItem);
-router.put('/:id', validateItem, updateItem);
+router.get('/:id/usage', checkItemUsage);
+router.post('/', uploadSingleImage, handleUploadError, validateItem, createItem);
+router.put('/:id', uploadSingleImage, handleUploadError, validateItem, updateItem);
 router.delete('/:id', deleteItem);
 router.patch('/:id/toggle-status', toggleItemStatus);
 

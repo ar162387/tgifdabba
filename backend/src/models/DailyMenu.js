@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { randomUUID } from 'crypto';
 
 const dailyMenuSchema = new mongoose.Schema({
   dayOfWeek: {
@@ -11,12 +12,16 @@ const dailyMenuSchema = new mongoose.Schema({
     ref: 'Item'
   }],
   sections: [{
+    id: {
+      type: String,
+      required: false // Make optional to handle existing data
+    },
     name: {
       type: String,
       required: true,
       trim: true
     },
-    items: [{
+    itemIds: [{
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Item'
     }]
@@ -44,6 +49,33 @@ dailyMenuSchema.pre('save', function(next) {
   if (this.published && !this.publishedAt) {
     this.publishedAt = Date.now();
   }
+  
+  // Generate IDs for sections that don't have them
+  if (this.sections && this.sections.length > 0) {
+    this.sections.forEach(section => {
+      if (!section.id) {
+        section.id = randomUUID();
+      }
+    });
+  }
+  
+  next();
+});
+
+// Handle updates
+dailyMenuSchema.pre(['updateOne', 'findOneAndUpdate'], function(next) {
+  this.set({ updatedAt: Date.now() });
+  
+  // Generate IDs for sections that don't have them
+  const sections = this.getUpdate()?.sections;
+  if (sections && sections.length > 0) {
+    sections.forEach(section => {
+      if (!section.id) {
+        section.id = randomUUID();
+      }
+    });
+  }
+  
   next();
 });
 

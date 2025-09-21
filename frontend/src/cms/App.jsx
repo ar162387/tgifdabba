@@ -1,9 +1,8 @@
 import React, { useState } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
-import { User, LogOut } from 'lucide-react';
 import Sidebar from './layout/Sidebar';
 import Topbar from './layout/Topbar';
 import MainContent from './layout/MainContent';
@@ -29,8 +28,9 @@ const queryClient = new QueryClient({
   },
 });
 
-const CMSApp = () => {
-  const [showProfile, setShowProfile] = useState(false);
+const CMSAppContent = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
 
   const handleLogout = async () => {
     try {
@@ -44,117 +44,91 @@ const CMSApp = () => {
   };
 
   const handleProfileClick = () => {
-    setShowProfile(true);
+    navigate('profile');
+  };
+
+  const handleOrderClick = (order) => {
+    if (order) {
+      // Navigate to orders page with order ID in URL state
+      navigate('orders', { 
+        state: { 
+          selectedOrderId: order.orderId,
+          selectedOrderData: order.orderData || order
+        } 
+      });
+    } else {
+      // Navigate to orders page without specific order
+      navigate('orders');
+    }
   };
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <Router>
-      <div className="min-h-screen bg-gray-50">
-        <Toaster
-          position="top-right"
-          toastOptions={{
-            duration: 4000,
-            style: {
-              background: '#363636',
-              color: '#fff',
+    <div className="min-h-screen bg-gray-50">
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          duration: 4000,
+          style: {
+            background: '#363636',
+            color: '#fff',
+          },
+          success: {
+            duration: 3000,
+            iconTheme: {
+              primary: '#10B981',
+              secondary: '#fff',
             },
-            success: {
-              duration: 3000,
-              iconTheme: {
-                primary: '#10B981',
-                secondary: '#fff',
-              },
+          },
+          error: {
+            duration: 5000,
+            iconTheme: {
+              primary: '#EF4444',
+              secondary: '#fff',
             },
-            error: {
-              duration: 5000,
-              iconTheme: {
-                primary: '#EF4444',
-                secondary: '#fff',
-              },
-            },
-          }}
-        />
+          },
+        }}
+      />
+      
+      <Routes>
+        {/* Public Routes */}
+        <Route path="login" element={<Login />} />
         
-        <Routes>
-          {/* Public Routes */}
-          <Route path="/cms/login" element={<Login />} />
-          
-          {/* Protected Routes */}
-          <Route path="/cms" element={
-            <ProtectedRoute>
-              <div className="flex">
-                <Sidebar />
-                <div className="flex-1 flex flex-col">
-                  <Topbar 
-                    onProfileClick={handleProfileClick}
-                    onLogout={handleLogout}
-                  />
-                  <MainContent />
-                </div>
-              </div>
-            </ProtectedRoute>
-          }>
-            <Route index element={<Navigate to="/cms/dashboard" replace />} />
-            <Route path="dashboard" element={<Dashboard />} />
-            <Route path="items" element={<Items />} />
-            <Route path="daily-menu" element={<DailyMenu />} />
-            <Route path="orders" element={<Orders />} />
-            <Route path="contacts" element={<Contacts />} />
-            <Route path="profile" element={<Profile />} />
-          </Route>
-          
-          {/* Catch all route */}
-          <Route path="*" element={<Navigate to="/cms/dashboard" replace />} />
-        </Routes>
-
-        {/* Profile Modal */}
-        {showProfile && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center">
-            <div className="absolute inset-0 bg-gray-900 bg-opacity-20 backdrop-blur-sm" onClick={() => setShowProfile(false)} />
-            <div className="relative bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
-              <div className="p-6">
-                <h2 className="text-xl font-semibold mb-4">Profile</h2>
-                <div className="space-y-4">
-                  <button
-                    onClick={() => {
-                      setShowProfile(false);
-                      window.location.href = '/cms/profile';
-                    }}
-                    className="w-full text-left p-3 hover:bg-gray-50 rounded-lg transition-colors"
-                  >
-                    <div className="flex items-center space-x-3">
-                      <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center">
-                        <User size={16} className="text-gray-600" />
-                      </div>
-                      <div>
-                        <p className="font-medium">View Profile</p>
-                        <p className="text-sm text-gray-500">Manage your account settings</p>
-                      </div>
-                    </div>
-                  </button>
-                  
-                  <button
-                    onClick={handleLogout}
-                    className="w-full text-left p-3 hover:bg-red-50 rounded-lg transition-colors text-red-600"
-                  >
-                    <div className="flex items-center space-x-3">
-                      <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center">
-                        <LogOut size={16} className="text-red-600" />
-                      </div>
-                      <div>
-                        <p className="font-medium">Sign Out</p>
-                        <p className="text-sm text-red-500">Logout from your account</p>
-                      </div>
-                    </div>
-                  </button>
-                </div>
+        {/* Protected Routes */}
+        <Route path="" element={
+          <ProtectedRoute>
+            <div className="flex">
+              <Sidebar />
+              <div className="flex-1 flex flex-col">
+                <Topbar 
+                  onProfileClick={handleProfileClick}
+                  onLogout={handleLogout}
+                  onOrderClick={handleOrderClick}
+                />
+                <MainContent />
               </div>
             </div>
-          </div>
-        )}
-      </div>
-      </Router>
+          </ProtectedRoute>
+        }>
+          <Route index element={<Navigate to="dashboard" replace />} />
+          <Route path="dashboard" element={<Dashboard />} />
+          <Route path="items" element={<Items />} />
+          <Route path="daily-menu" element={<DailyMenu />} />
+          <Route path="orders" element={<Orders />} />
+          <Route path="contacts" element={<Contacts />} />
+          <Route path="profile" element={<Profile />} />
+        </Route>
+        
+        {/* Catch all route */}
+        <Route path="*" element={<Navigate to="dashboard" replace />} />
+      </Routes>
+    </div>
+  );
+};
+
+const CMSApp = () => {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <CMSAppContent />
       <ReactQueryDevtools initialIsOpen={false} />
     </QueryClientProvider>
   );

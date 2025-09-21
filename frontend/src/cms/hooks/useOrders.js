@@ -61,19 +61,54 @@ export const useUpdateOrderStatus = () => {
   });
 };
 
-// Mark order as read mutation
-export const useMarkOrderAsRead = () => {
+// Delete order mutation
+export const useDeleteOrder = () => {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: (id) => orderService.markOrderAsRead(id),
-    onSuccess: (data, id) => {
+    mutationFn: (id) => orderService.deleteOrder(id),
+    onSuccess: () => {
+      // Invalidate orders list and stats
+      queryClient.invalidateQueries({ queryKey: orderKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: orderKeys.stats() });
+    },
+  });
+};
+
+// Cancel order mutation
+export const useCancelOrder = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: ({ id, reason }) => orderService.cancelOrder(id, reason),
+    onSuccess: (data, variables) => {
       // Update the specific order in cache
       queryClient.setQueryData(
-        orderKeys.detail(id),
+        orderKeys.detail(variables.id),
         { data: data.data }
       );
+      // Invalidate orders list and stats
       queryClient.invalidateQueries({ queryKey: orderKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: orderKeys.stats() });
+    },
+  });
+};
+
+// Update payment status mutation
+export const useUpdatePaymentStatus = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: ({ id, paymentStatus }) => orderService.updatePaymentStatus(id, paymentStatus),
+    onSuccess: (data, variables) => {
+      // Update the specific order in cache
+      queryClient.setQueryData(
+        orderKeys.detail(variables.id),
+        { data: data.data }
+      );
+      // Invalidate orders list and stats
+      queryClient.invalidateQueries({ queryKey: orderKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: orderKeys.stats() });
     },
   });
 };

@@ -1,20 +1,24 @@
 import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
-import { User, Mail, Lock, Save } from 'lucide-react';
+import { User, Mail, Lock, Save, Bell, Volume2, VolumeX } from 'lucide-react';
 import { authService } from '../services/authService';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
+import soundManager from '../utils/soundUtils';
 import toast from 'react-hot-toast';
 
 const Profile = () => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [soundEnabled, setSoundEnabled] = useState(true);
   
   const { register, handleSubmit, reset, formState: { errors } } = useForm();
 
   useEffect(() => {
     fetchUserProfile();
+    // Load sound preference
+    setSoundEnabled(soundManager.getSoundPreference());
   }, []);
 
   const fetchUserProfile = async () => {
@@ -41,6 +45,13 @@ const Profile = () => {
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleSoundToggle = () => {
+    const newValue = !soundEnabled;
+    setSoundEnabled(newValue);
+    soundManager.setSoundPreference(newValue);
+    toast.success(newValue ? 'Sound notifications enabled' : 'Sound notifications disabled');
   };
 
   if (loading) {
@@ -149,6 +160,51 @@ const Profile = () => {
             </Button>
           </div>
         </form>
+      </div>
+
+      {/* Notification Preferences */}
+      <div className="bg-white rounded-lg shadow p-6">
+        <h2 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
+          <Bell size={20} className="mr-2" />
+          Notification Preferences
+        </h2>
+        
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-medium text-gray-900">Sound Notifications</h3>
+              <p className="text-sm text-gray-500">
+                Play a sound when new orders are received
+              </p>
+            </div>
+            <button
+              onClick={handleSoundToggle}
+              className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 ${
+                soundEnabled ? 'bg-orange-600' : 'bg-gray-200'
+              }`}
+            >
+              <span
+                className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                  soundEnabled ? 'translate-x-5' : 'translate-x-0'
+                }`}
+              />
+            </button>
+          </div>
+          
+          <div className="flex items-center space-x-2 text-sm text-gray-600">
+            {soundEnabled ? (
+              <>
+                <Volume2 size={16} />
+                <span>Sound notifications are enabled</span>
+              </>
+            ) : (
+              <>
+                <VolumeX size={16} />
+                <span>Sound notifications are disabled</span>
+              </>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* Security Notice */}

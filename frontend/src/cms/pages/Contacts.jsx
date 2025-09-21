@@ -1,12 +1,10 @@
-import React, { useState, useMemo, useCallback, useTransition } from 'react';
-import { Search, Filter, Eye, Mail, CheckCircle, Trash2 } from 'lucide-react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import { Search, Eye, CheckCircle, Trash2 } from 'lucide-react';
 import { Button } from '../components/ui/Button';
-import { Input } from '../components/ui/Input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/Table';
 import EmptyState from '../components/ui/EmptyState';
 import { TableSkeleton, FormSkeleton } from '../components/ui/Skeleton';
-import { useContacts, useMarkContactAsRead, useRespondToContact, useDeleteContact } from '../hooks/useContacts';
-import { useDebounce } from '../hooks/useDebounce';
+import { useContacts, useMarkContactAsRead, useDeleteContact } from '../hooks/useContacts';
 import toast from 'react-hot-toast';
 
 const Contacts = () => {
@@ -15,31 +13,75 @@ const Contacts = () => {
   const [sortBy, setSortBy] = useState('createdAt');
   const [sortOrder, setSortOrder] = useState('desc');
   const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
   const [selectedContact, setSelectedContact] = useState(null);
-  const [isPending, startTransition] = useTransition();
+  const [filteredContacts, setFilteredContacts] = useState([]);
+  const [allContacts, setAllContacts] = useState([]);
 
-  // Debounce search term
-  const debouncedSearchTerm = useDebounce(searchTerm, 300);
-
-  // Memoized query parameters
+  // Simple query parameters without search
   const queryParams = useMemo(() => ({
-    page: currentPage,
-    limit: 10,
-    ...(debouncedSearchTerm && { search: debouncedSearchTerm }),
-    ...(readFilter && { read: readFilter }),
+    page: 1,
+    limit: 1000, // Get all contacts for client-side filtering
     sortBy,
     sortOrder
-  }), [currentPage, debouncedSearchTerm, readFilter, sortBy, sortOrder]);
+  }), [sortBy, sortOrder]);
 
   // TanStack Query hooks
   const { data: contactsData, isLoading, error } = useContacts(queryParams);
   const markAsReadMutation = useMarkContactAsRead();
-  const respondMutation = useRespondToContact();
   const deleteMutation = useDeleteContact();
 
+  // Update allContacts when data changes
+  useEffect(() => {
+    if (contactsData?.contacts) {
+      setAllContacts(contactsData.contacts);
+    }
+  }, [contactsData?.contacts]);
+
+  // Client-side filtering - no re-renders that affect input focus
+  useEffect(() => {
+    let filtered = allContacts;
+    
+    // Apply read filter first
+    if (readFilter) {
+      filtered = filtered.filter(contact => contact.read.toString() === readFilter);
+    }
+    
+    // Then apply search filter
+    if (searchTerm.trim()) {
+      const searchLower = searchTerm.toLowerCase();
+      filtered = filtered.filter(contact => 
+        contact.name.toLowerCase().includes(searchLower) ||
+        contact.message.toLowerCase().includes(searchLower)
+      );
+    }
+    
+    setFilteredContacts(filtered);
+    // Reset to first page when filters change
+    setCurrentPage(1);
+  }, [allContacts, searchTerm, readFilter]);
+
   // Memoized contacts and pagination data
-  const contacts = useMemo(() => contactsData?.contacts || [], [contactsData?.contacts]);
-  const totalPages = useMemo(() => contactsData?.pagination?.pages || 1, [contactsData?.pagination?.pages]);
+  const contacts = useMemo(() => filteredContacts, [filteredContacts]);
+  const totalPages = useMemo(() => Math.ceil(filteredContacts.length / itemsPerPage), [filteredContacts.length, itemsPerPage]);
+
+  // Ensure current page is valid when filtered contacts change
+  useEffect(() => {
+    if (currentPage > totalPages && totalPages > 0) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
+
+  // Debug logging
+  console.log('Contacts pagination debug:', {
+    allContactsLength: allContacts.length,
+    filteredContactsLength: filteredContacts.length,
+    currentPage,
+    itemsPerPage,
+    totalPages,
+    contactsLength: contacts.length,
+    slicedContactsLength: contacts.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).length
+  });
 
   // Memoized event handlers
   const handleMarkAsRead = useCallback(async (contactId) => {
@@ -73,17 +115,23 @@ const Contacts = () => {
     });
   }, []);
 
-  // Memoized filter handlers with useTransition
-  const handleSearchChange = useCallback((e) => {
-    startTransition(() => {
-      setSearchTerm(e.target.value);
-    });
+  // Simple filter handlers - no useCallback to avoid re-render issues
+  const handleSearchChange = (e) => {
+    setSearchTerm(e.target.value);
+  };
+
+  const handleReadFilterChange = (e) => {
+    setReadFilter(e.target.value);
+  };
+
+  // Pagination handlers
+  const handlePageChange = useCallback((page) => {
+    setCurrentPage(page);
   }, []);
 
-  const handleReadFilterChange = useCallback((e) => {
-    startTransition(() => {
-      setReadFilter(e.target.value);
-    });
+  const handleItemsPerPageChange = useCallback((newItemsPerPage) => {
+    setItemsPerPage(newItemsPerPage);
+    setCurrentPage(1); // Reset to first page when changing items per page
   }, []);
 
   // Show skeleton loader while loading
@@ -125,16 +173,11 @@ const Contacts = () => {
 
       {/* Filters */}
       <div className="bg-white p-4 rounded-lg shadow">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="relative">
-            <Search size={20} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-            <Input
-              placeholder="Search contacts..."
-              value={searchTerm}
-              onChange={handleSearchChange}
-              className="pl-10"
-            />
-          </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <SearchInput
+            value={searchTerm}
+            onChange={handleSearchChange}
+          />
           
           <select
             value={readFilter}
@@ -160,11 +203,6 @@ const Contacts = () => {
             <option value="name-asc">Name A-Z</option>
             <option value="name-desc">Name Z-A</option>
           </select>
-          
-          <Button variant="outline" disabled={isPending}>
-            <Filter size={20} className="mr-2" />
-            {isPending ? 'Filtering...' : 'Apply Filters'}
-          </Button>
         </div>
       </div>
 
@@ -175,24 +213,25 @@ const Contacts = () => {
             <TableHeader>
               <TableRow>
                 <TableHead>Name</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Subject</TableHead>
+                <TableHead>Phone</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Date</TableHead>
                 <TableHead>Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {contacts.map((contact) => (
-                <ContactTableRow
-                  key={contact._id}
-                  contact={contact}
-                  formatDate={formatDate}
-                  onViewDetails={() => setSelectedContact(contact)}
-                  onMarkAsRead={handleMarkAsRead}
-                  onDelete={handleDelete}
-                />
-              ))}
+              {contacts
+                .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
+                .map((contact) => (
+                  <ContactTableRow
+                    key={contact._id}
+                    contact={contact}
+                    formatDate={formatDate}
+                    onViewDetails={() => setSelectedContact(contact)}
+                    onMarkAsRead={handleMarkAsRead}
+                    onDelete={handleDelete}
+                  />
+                ))}
             </TableBody>
           </Table>
         </div>
@@ -205,25 +244,82 @@ const Contacts = () => {
       )}
 
       {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex justify-center space-x-2">
-          <Button
-            variant="outline"
-            disabled={currentPage === 1}
-            onClick={() => setCurrentPage(currentPage - 1)}
-          >
-            Previous
-          </Button>
-          <span className="px-4 py-2 text-sm text-gray-600">
-            Page {currentPage} of {totalPages}
-          </span>
-          <Button
-            variant="outline"
-            disabled={currentPage === totalPages}
-            onClick={() => setCurrentPage(currentPage + 1)}
-          >
-            Next
-          </Button>
+      {contacts.length > 0 && (
+        <div className="flex flex-col sm:flex-row justify-between items-center space-y-4 sm:space-y-0">
+          {/* Pagination Info */}
+          <div className="text-sm text-gray-600">
+            Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, contacts.length)} of {contacts.length} results
+          </div>
+
+          {/* Pagination Controls */}
+          <div className="flex flex-col sm:flex-row items-center space-y-2 sm:space-y-0 sm:space-x-4">
+            {/* Size Selector */}
+            <div className="flex items-center space-x-2">
+              <span className="text-sm text-gray-600">Show:</span>
+              <select
+                value={itemsPerPage}
+                onChange={(e) => handleItemsPerPageChange(Number(e.target.value))}
+                className="px-2 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
+              >
+                <option value={5}>5</option>
+                <option value={10}>10</option>
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+              </select>
+              <span className="text-sm text-gray-600">per page</span>
+            </div>
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="flex items-center space-x-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={currentPage === 1}
+                  onClick={() => handlePageChange(currentPage - 1)}
+                  className="h-8 w-8 p-0"
+                >
+                  ←
+                </Button>
+                
+                {/* Page Numbers */}
+                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                  let pageNum;
+                  if (totalPages <= 5) {
+                    pageNum = i + 1;
+                  } else if (currentPage <= 3) {
+                    pageNum = i + 1;
+                  } else if (currentPage >= totalPages - 2) {
+                    pageNum = totalPages - 4 + i;
+                  } else {
+                    pageNum = currentPage - 2 + i;
+                  }
+                  
+                  return (
+                    <Button
+                      key={pageNum}
+                      variant={currentPage === pageNum ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => handlePageChange(pageNum)}
+                      className="h-8 w-8 p-0"
+                    >
+                      {pageNum}
+                    </Button>
+                  );
+                })}
+                
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={currentPage === totalPages}
+                  onClick={() => handlePageChange(currentPage + 1)}
+                  className="h-8 w-8 p-0"
+                >
+                  →
+                </Button>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
@@ -241,33 +337,23 @@ const Contacts = () => {
 
 // Contact Details Modal Component
 const ContactDetailsModal = ({ contact, onClose, onMarkAsRead }) => {
-  const [response, setResponse] = useState('');
-  const respondMutation = useRespondToContact();
-
-  const handleRespond = async () => {
-    if (!response.trim()) {
-      toast.error('Please enter a response');
-      return;
-    }
-
-    try {
-      await respondMutation.mutateAsync({
-        id: contact._id,
-        response: response
-      });
-      toast.success('Response added successfully');
-      onClose();
-    } catch (error) {
-      toast.error('Failed to add response');
-    }
-  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="absolute inset-0 bg-gray-900 bg-opacity-20 backdrop-blur-sm" onClick={onClose} />
+      <div className="absolute inset-0 bg-transparent backdrop-blur-md" onClick={onClose} />
       <div className="relative bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
         <div className="p-6">
-          <h2 className="text-xl font-semibold mb-4">Contact Details</h2>
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-semibold">Contact Details</h2>
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
 
           <div className="space-y-6">
             {/* Contact Info */}
@@ -278,10 +364,6 @@ const ContactDetailsModal = ({ contact, onClose, onMarkAsRead }) => {
                   <div>
                     <p className="text-sm text-gray-600">Name</p>
                     <p className="font-medium">{contact.name}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Email</p>
-                    <p className="font-medium">{contact.email}</p>
                   </div>
                   {contact.phone && (
                     <div>
@@ -299,15 +381,6 @@ const ContactDetailsModal = ({ contact, onClose, onMarkAsRead }) => {
               </div>
             </div>
 
-            {/* Subject */}
-            {contact.subject && (
-              <div>
-                <h3 className="text-lg font-medium mb-3">Subject</h3>
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <p className="font-medium">{contact.subject}</p>
-                </div>
-              </div>
-            )}
 
             {/* Message */}
             <div>
@@ -318,27 +391,11 @@ const ContactDetailsModal = ({ contact, onClose, onMarkAsRead }) => {
             </div>
 
             {/* Response */}
-            {contact.response ? (
+            {contact.response && (
               <div>
                 <h3 className="text-lg font-medium mb-3">Response</h3>
                 <div className="bg-blue-50 p-4 rounded-lg">
                   <p className="whitespace-pre-wrap">{contact.response}</p>
-                </div>
-              </div>
-            ) : (
-              <div>
-                <h3 className="text-lg font-medium mb-3">Add Response</h3>
-                <textarea
-                  value={response}
-                  onChange={(e) => setResponse(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
-                  rows={4}
-                  placeholder="Type your response here..."
-                />
-                <div className="mt-3">
-                  <Button onClick={handleRespond} disabled={isResponding}>
-                    {isResponding ? 'Sending...' : 'Send Response'}
-                  </Button>
                 </div>
               </div>
             )}
@@ -371,12 +428,7 @@ const ContactTableRow = React.memo(({
   return (
     <TableRow className={!contact.read ? 'bg-blue-50' : ''}>
       <TableCell className="font-medium">{contact.name}</TableCell>
-      <TableCell>{contact.email}</TableCell>
-      <TableCell>
-        <div className="max-w-xs truncate">
-          {contact.subject || 'No subject'}
-        </div>
-      </TableCell>
+      <TableCell>{contact.phone || 'No phone'}</TableCell>
       <TableCell>
         <div className="flex items-center space-x-2">
           {contact.read ? (
@@ -428,5 +480,21 @@ const ContactTableRow = React.memo(({
     </TableRow>
   );
 });
+
+// Simple search input - no complex focus management
+const SearchInput = ({ value, onChange }) => {
+  return (
+    <div className="relative">
+      <Search size={20} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+      <input
+        type="text"
+        placeholder="Search contacts..."
+        value={value}
+        onChange={onChange}
+        className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
+      />
+    </div>
+  );
+};
 
 export default Contacts;

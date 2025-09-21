@@ -55,8 +55,12 @@ export const useUpdateItem = () => {
         itemKeys.detail(variables.id),
         { data: data.data }
       );
-      // Invalidate items list
-      queryClient.invalidateQueries({ queryKey: itemKeys.lists() });
+      
+      // Force invalidate all items-related queries
+      queryClient.invalidateQueries({ queryKey: itemKeys.all });
+      
+      // Also remove specific queries to force fresh fetch
+      queryClient.removeQueries({ queryKey: itemKeys.lists() });
     },
   });
 };
@@ -67,9 +71,25 @@ export const useDeleteItem = () => {
   
   return useMutation({
     mutationFn: (id) => itemService.deleteItem(id),
-    onSuccess: () => {
+    onSuccess: (response) => {
+      // Invalidate items queries to refresh the list
       queryClient.invalidateQueries({ queryKey: itemKeys.lists() });
+      
+      // Also invalidate daily menu queries since items might have been removed from menus
+      queryClient.invalidateQueries({ queryKey: ['dailyMenus'] });
+      
+      return response; // Return response so it can be used in the component
     },
+  });
+};
+
+// Check item usage query
+export const useItemUsage = (id) => {
+  return useQuery({
+    queryKey: [...itemKeys.detail(id), 'usage'],
+    queryFn: () => itemService.checkItemUsage(id),
+    select: (data) => data.data,
+    enabled: !!id,
   });
 };
 

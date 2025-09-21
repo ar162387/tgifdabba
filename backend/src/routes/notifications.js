@@ -4,14 +4,15 @@ import {
   getRecentActivity
 } from '../controllers/notificationController.js';
 import { authenticateToken } from '../middleware/auth.js';
+import { notificationLimiter } from '../middleware/rateLimit.js';
 
 const router = express.Router();
 
 // All routes require authentication
 router.use(authenticateToken);
 
-// Notification routes
-router.get('/counters', getNotificationCounters);
-router.get('/activity', getRecentActivity);
+// Notification routes with lenient rate limiting
+router.get('/counters', notificationLimiter, getNotificationCounters);
+router.get('/activity', notificationLimiter, getRecentActivity);
 
 export default router;

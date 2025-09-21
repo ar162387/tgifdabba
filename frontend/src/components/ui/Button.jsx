@@ -50,10 +50,20 @@ const Button = ({
         border: 'border-white',
         text: isHovered ? 'text-charcoal' : 'text-white',
         background: isHovered ? 'bg-white' : 'bg-transparent'
+      },
+      black: {
+        border: 'border-black',
+        text: isHovered ? 'text-white' : 'text-black',
+        background: isHovered ? 'bg-black' : 'bg-transparent'
+      },
+      outline: {
+        border: 'border-gray-300',
+        text: isHovered ? 'text-white' : 'text-gray-700',
+        background: isHovered ? 'bg-gray-700' : 'bg-transparent'
       }
     };
     
-    const currentVariant = variants[variant];
+    const currentVariant = variants[variant] || variants.primary;
     return `${currentVariant.border} ${currentVariant.text} ${currentVariant.background}`;
   };
 
