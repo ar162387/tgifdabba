@@ -139,7 +139,7 @@ class RealtimeService {
 
         // Create SSE connection
         this.eventSource = new EventSource(
-          `http://localhost:5001/api/cms/realtime/orders?token=${encodeURIComponent(token)}`
+          `${import.meta.env.VITE_CMS_API_BASE_URL || 'http://localhost:5001/api/cms'}/realtime/orders?token=${encodeURIComponent(token)}`
         );
 
         this.eventSource.onopen = () => {
