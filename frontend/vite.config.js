@@ -11,12 +11,5 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
-  preview: {
-    port: 4173,
-    strictPort: true,
-  },
-  build: {
-    outDir: 'dist',
-    assetsDir: 'assets',
-  },
+
 })
