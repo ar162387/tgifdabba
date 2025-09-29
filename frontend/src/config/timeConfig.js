@@ -3,11 +3,11 @@
 
 export const TIME_CONFIG = {
   // Time when ordering stops for the day (in 24-hour format)
-  ORDERING_STOP_HOUR: 12, // 12 PM
+  ORDERING_STOP_HOUR: 9, // 12 PM
   ORDERING_STOP_MINUTE: 0,
   
   // Time when ordering starts for the next day (in 24-hour format)
-  ORDERING_START_HOUR: 14, // 2 PM
+  ORDERING_START_HOUR: 11, // 2 PM
   ORDERING_START_MINUTE: 0,
   
   // Duration of the ordering restriction window (in hours)
