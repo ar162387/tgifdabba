@@ -1,7 +1,10 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import Button from '../ui/Button';
 
 const About = () => {
+  const navigate = useNavigate();
+
   return (
     <section className="bg-primary-orange py-20 md:py-24 relative">
       {/* Gradient transition overlay at the top */}
@@ -30,7 +33,11 @@ const About = () => {
             
             {/* Optional CTA */}
             <div className="pt-4">
-              <Button variant="primary" size="default">
+              <Button 
+                variant="primary" 
+                size="default"
+                onClick={() => navigate('/menu')}
+              >
                 Order Now
               </Button>
             </div>

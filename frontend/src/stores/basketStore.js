@@ -12,6 +12,8 @@ export const useBasketStore = create(
       specialRequests: '',
       lastActivity: Date.now(),
       currentMenuDay: null, // Track which day's menu the cart belongs to
+      postcode: '', // User's postcode for delivery calculation
+      deliveryInfo: null, // Delivery information from geocoding service
 
       // Actions
       addToCart: (item, menuDay = null) => {
@@ -145,6 +147,22 @@ export const useBasketStore = create(
         }));
       },
 
+      setPostcode: (postcode) => {
+        set((state) => ({
+          ...state,
+          postcode: postcode,
+          lastActivity: Date.now()
+        }));
+      },
+
+      setDeliveryInfo: (deliveryInfo) => {
+        set((state) => ({
+          ...state,
+          deliveryInfo: deliveryInfo,
+          lastActivity: Date.now()
+        }));
+      },
+
       // Computed values (getters)
       getCartTotal: () => {
         const { cart } = get();
@@ -163,8 +181,39 @@ export const useBasketStore = create(
       },
 
       getDeliveryFee: () => {
-        const { deliveryOption } = get();
-        return deliveryOption === 'delivery' ? 3.0 : 0;
+        const { deliveryOption, deliveryInfo, getCartTotal } = get();
+        
+        // Collection is always free
+        if (deliveryOption === 'collection') {
+          return 0;
+        }
+        
+        // For delivery, check the new FREE delivery rules
+        if (deliveryOption === 'delivery') {
+          const cartTotal = getCartTotal();
+          
+          // If no delivery info available, use default fee
+          if (!deliveryInfo) {
+            return 2.0; // Default delivery fee
+          }
+          
+          // Check if within 3.5 miles radius (inDeliveryRange)
+          if (deliveryInfo.inDeliveryRange) {
+            // Within 3.5 miles - FREE delivery
+            return 0;
+          } else {
+            // Outside 3.5 miles
+            if (cartTotal >= 30) {
+              // Order value £30 or more - FREE delivery
+              return 0;
+            } else {
+              // Order value less than £30 - £2 delivery charge
+              return 2.0;
+            }
+          }
+        }
+        
+        return 0;
       },
 
       getFinalTotal: () => {
@@ -182,7 +231,9 @@ export const useBasketStore = create(
         deliveryOption: state.deliveryOption, 
         specialRequests: state.specialRequests,
         lastActivity: state.lastActivity,
-        currentMenuDay: state.currentMenuDay
+        currentMenuDay: state.currentMenuDay,
+        postcode: state.postcode,
+        deliveryInfo: state.deliveryInfo
       }),
     }
   )

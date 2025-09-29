@@ -101,7 +101,7 @@ const TopNav = () => {
               </button>
             </div>
             
-            {/* Mobile navigation - + icon and cart count */}
+            {/* Mobile navigation - hamburger menu and cart count */}
             <div className="flex items-center space-x-3 md:hidden">
               <button 
                 onClick={toggleMobileMenu}
@@ -110,16 +110,16 @@ const TopNav = () => {
                 }`}
               >
                 <div className="relative w-6 h-6">
-                  <span className={`absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 transition-all duration-300 ${
-                    isMobileMenuOpen ? 'rotate-45' : 'rotate-0'
-                  }`}>
-                    +
-                  </span>
-                  <span className={`absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 transition-all duration-300 ${
-                    isMobileMenuOpen ? 'rotate-45' : 'rotate-0'
-                  }`}>
-                    +
-                  </span>
+                  {/* Hamburger menu lines */}
+                  <span className={`absolute top-1 left-1/2 transform -translate-x-1/2 w-4 h-0.5 bg-current transition-all duration-300 ${
+                    isMobileMenuOpen ? 'rotate-45 translate-y-1.5' : 'rotate-0 translate-y-0'
+                  }`}></span>
+                  <span className={`absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-4 h-0.5 bg-current transition-all duration-300 ${
+                    isMobileMenuOpen ? 'opacity-0' : 'opacity-100'
+                  }`}></span>
+                  <span className={`absolute bottom-1 left-1/2 transform -translate-x-1/2 w-4 h-0.5 bg-current transition-all duration-300 ${
+                    isMobileMenuOpen ? '-rotate-45 -translate-y-1.5' : 'rotate-0 translate-y-0'
+                  }`}></span>
                 </div>
               </button>
               <button 

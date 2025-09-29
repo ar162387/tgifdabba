@@ -1,36 +1,52 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import CurvedLoop from './CurvedLoop';
 
 // Mobile-specific Hero component
 const MobileHero = () => {
+  const navigate = useNavigate();
+
   return (
     <section className="relative min-h-screen overflow-hidden md:hidden">
       {/* Solid orange background */}
       <div className="absolute inset-0 bg-primary-orange"></div>
       
-      {/* Mobile-optimized layout with overlapping elements */}
-      <div className="relative z-10">
-        {/* Main headline - positioned to allow overlap */}
-        <div className="flex items-center justify-center px-4 pt-16 pb-2">
-          <h1 className="text-[3.5rem] font-extrabold uppercase tracking-tight leading-[0.9] text-accent-yellow text-center relative z-20 mt-8">
+      {/* Mobile-optimized layout with full-width image */}
+      <div className="relative z-10 min-h-screen flex flex-col">
+        {/* Main headline */}
+        <div className="flex items-center justify-center px-4 pt-16 pb-8">
+          <h1 className="text-[2.5rem] font-extrabold uppercase tracking-tight leading-[0.9] text-accent-yellow text-center">
             FRESH FLAVOURS, EVERY DAY
           </h1>
         </div>
         
-        {/* Food image - oval shape with slight overlap */}
-        <div className="flex items-center justify-center px-4 -mt-4">
-          <div className="w-[85vw] h-[45vh] max-h-[320px] rounded-[90%_28%] transform -rotate-4 overflow-hidden shadow-2xl relative z-10">
+        {/* Full-width image container with button overlay */}
+        <div className="flex-1 relative px-4">
+          {/* Full-width image - smooth squared container with blurred boundary */}
+          <div className="w-full h-[50vh] min-h-[350px] rounded-3xl overflow-hidden shadow-2xl relative z-10 border-4 border-white/30 backdrop-blur-sm bg-white/10">
             <img 
               src="/images/hero-bbq.jpg" 
               alt="Authentic homemade Indian food in South East London"
               className="w-full h-full object-cover"
             />
+            {/* Blurred overlay for glass effect */}
+            <div className="absolute inset-0 bg-white/5 backdrop-blur-[1px]"></div>
+            
+            {/* Order button positioned on top of image */}
+            <div className="absolute inset-0 flex items-center justify-center z-30">
+              <button
+                onClick={() => navigate('/menu')}
+                className="bg-transparent border-2 border-accent-yellow text-accent-yellow px-12 py-6 rounded-full font-bold text-xl uppercase tracking-wide shadow-lg hover:text-primary-orange transition-colors duration-200 transform hover:scale-105"
+              >
+                Order Now
+              </button>
+            </div>
           </div>
         </div>
       </div>
       
       {/* Copy block and zigzag text - mobile optimized with left alignment */}
-      <div className="relative z-10 bg-primary-orange py-8 px-4 mt-16">
+      <div className="relative z-10 bg-primary-orange py-8 px-4">
         <div className="space-y-8">
           
           {/* Copy block - mobile vertical layout with left alignment */}
@@ -72,31 +88,49 @@ const MobileHero = () => {
   );
 };
 
-// Desktop Hero component (original implementation)
+// Desktop Hero component (full-width image layout)
 const DesktopHero = () => {
+  const navigate = useNavigate();
+
   return (
     <section className="relative min-h-screen overflow-hidden hidden md:block">
       {/* Solid orange background */}
       <div className="absolute inset-0 bg-primary-orange"></div>
       
-      {/* Diagonally placed oval with food image inside - mirrored to left side */}
-      <div className="absolute inset-0 flex items-center justify-center">
-        <div className="w-[70vw] h-[70vh] lg:w-[83vw] lg:h-[80vh] rounded-[50%] transform -rotate-12 -translate-x-8 -translate-y-25 overflow-hidden">
-            <img 
-              src="/images/hero-bbq.jpg" 
-              alt="Authentic homemade Indian food in South East London"
-              className="w-full h-full object-cover"
-            />
-        </div>
-      </div>
-      
-      {/* Main headline on top - doubled size */}
-      <div className="relative z-10 min-h-screen center ">
-        <div className="max-w-7xl mx-auto px-6 w-full center items-center ">
-          <h1 className="text-[18rem] lg:text-[8rem] font-extrabold uppercase tracking-tight leading-none text-accent-yellow relative z-20 mt-32 items-center justify-center">
+      {/* Desktop layout with full-width image */}
+      <div className="relative z-10 min-h-screen flex flex-col">
+        {/* Main headline */}
+        <div className="flex items-center justify-center px-6 pt-16 pb-12">
+          <h1 className="text-[6rem] lg:text-[8rem] font-extrabold uppercase tracking-tight leading-none text-accent-yellow text-center">
             FRESH FLAVOURS,
             <br/> EVERY DAY
           </h1>
+        </div>
+        
+        {/* Full-width image container with button overlay */}
+        <div className="flex-1 flex items-center justify-center px-6">
+          <div className="max-w-6xl mx-auto w-full">
+            {/* Full-width image - smooth squared container with blurred boundary */}
+            <div className="w-full h-[60vh] min-h-[500px] rounded-3xl overflow-hidden shadow-2xl relative z-10 border-4 border-white/30 backdrop-blur-sm bg-white/10">
+              <img 
+                src="/images/hero-bbq.jpg" 
+                alt="Authentic homemade Indian food in South East London"
+                className="w-full h-full object-cover"
+              />
+              {/* Blurred overlay for glass effect */}
+              <div className="absolute inset-0 bg-white/5 backdrop-blur-[1px]"></div>
+              
+              {/* Order button positioned on top of image */}
+              <div className="absolute inset-0 flex items-center justify-center z-30">
+                <button
+                  onClick={() => navigate('/menu')}
+                  className="bg-transparent border-2 border-accent-yellow text-accent-yellow px-16 py-8 rounded-full font-bold text-2xl uppercase tracking-wide shadow-xl hover:text-primary-orange transition-colors duration-200 transform hover:scale-105"
+                >
+                  Order Now
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
       

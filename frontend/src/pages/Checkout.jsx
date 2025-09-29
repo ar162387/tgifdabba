@@ -7,6 +7,7 @@ import { stripeService } from '../services/stripeService';
 import StripePaymentForm from '../components/payment/StripePaymentForm';
 import { PAYMENT_METHODS } from '../config/stripe';
 import { generateOrderId } from '../utils/orderUtils';
+import PostcodeInput from '../components/ui/PostcodeInput';
 
 const Checkout = () => {
   const navigate = useNavigate();
@@ -14,9 +15,12 @@ const Checkout = () => {
     cart,
     deliveryOption,
     specialRequests,
+    postcode,
+    deliveryInfo,
     addToCart,
     removeFromCart,
     clearCart,
+    setDeliveryInfo,
     getCartTotal,
     getDeliveryFee,
     getFinalTotal
@@ -29,8 +33,8 @@ const Checkout = () => {
   const [deliveryAddress, setDeliveryAddress] = useState(() => {
     return localStorage.getItem('checkout_deliveryAddress') || '';
   });
-  const [postcode, setPostcode] = useState(() => {
-    return localStorage.getItem('checkout_postcode') || '';
+  const [checkoutPostcode, setCheckoutPostcode] = useState(() => {
+    return localStorage.getItem('checkout_postcode') || postcode || '';
   });
   const [phoneNumber, setPhoneNumber] = useState(() => {
     return localStorage.getItem('checkout_phoneNumber') || '';
@@ -61,8 +65,8 @@ const Checkout = () => {
   }, [deliveryAddress]);
 
   useEffect(() => {
-    localStorage.setItem('checkout_postcode', postcode);
-  }, [postcode]);
+    localStorage.setItem('checkout_postcode', checkoutPostcode);
+  }, [checkoutPostcode]);
 
   useEffect(() => {
     localStorage.setItem('checkout_phoneNumber', phoneNumber);
@@ -79,6 +83,13 @@ const Checkout = () => {
   useEffect(() => {
     localStorage.setItem('checkout_paymentMethod', paymentMethod);
   }, [paymentMethod]);
+
+  // Sync checkout postcode with basket postcode
+  useEffect(() => {
+    if (postcode && postcode !== checkoutPostcode) {
+      setCheckoutPostcode(postcode);
+    }
+  }, [postcode]);
 
   const validateEmail = () => {
     if (!email.trim()) {
@@ -102,7 +113,7 @@ const Checkout = () => {
         alert('Please enter your delivery address');
         return false;
       }
-      if (!postcode.trim()) {
+      if (!checkoutPostcode.trim()) {
         alert('Please enter your postcode');
         return false;
       }
@@ -151,7 +162,7 @@ const Checkout = () => {
         delivery: {
           type: deliveryOption,
           address: deliveryOption === 'delivery' ? deliveryAddress.trim() : undefined,
-          postcode: deliveryOption === 'delivery' ? postcode.trim() : undefined
+          postcode: deliveryOption === 'delivery' ? checkoutPostcode.trim() : undefined
         },
         items: cart.map(item => ({
           itemId: item._id,
@@ -219,7 +230,7 @@ const Checkout = () => {
           delivery: {
             type: deliveryOption,
             address: deliveryOption === 'delivery' ? deliveryAddress.trim() : undefined,
-            postcode: deliveryOption === 'delivery' ? postcode.trim() : undefined
+            postcode: deliveryOption === 'delivery' ? checkoutPostcode.trim() : undefined
           },
           items: cart.map(item => ({
             itemId: item._id,
@@ -385,6 +396,13 @@ const Checkout = () => {
                             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-orange focus:border-transparent"
                             rows="3"
                           />
+                          {!postcode && (
+                            <div className="mt-2 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                              <p className="text-sm text-yellow-700">
+                                <strong>⚠️ Please enter your postcode in the basket to check delivery availability and pricing.</strong>
+                              </p>
+                            </div>
+                          )}
                         </div>
                       )}
                       
@@ -394,12 +412,25 @@ const Checkout = () => {
                             <label className="block text-sm font-medium text-gray-700 mb-2">
                               Postcode
                             </label>
-                            <input
-                              type="text"
-                              value={postcode}
-                              onChange={(e) => setPostcode(e.target.value)}
+                            <PostcodeInput
+                              value={checkoutPostcode}
+                              onChange={(value) => {
+                                setCheckoutPostcode(value);
+                                setPostcode(value); // Sync with basket
+                              }}
+                              onSelect={(suggestion) => {
+                                // Save the selected address in basket store
+                                setCheckoutPostcode(suggestion.postcode);
+                                setPostcode(suggestion.postcode); // Sync with basket
+                                setDeliveryInfo({
+                                  postcode: suggestion.postcode,
+                                  address: suggestion.address,
+                                  coordinates: { lat: suggestion.lat, lon: suggestion.lon },
+                                  displayName: suggestion.displayName
+                                });
+                              }}
                               placeholder="BR6 0AB"
-                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-orange focus:border-transparent"
+                              className="w-full"
                             />
                           </div>
                           <div>
@@ -693,6 +724,12 @@ const Checkout = () => {
                     <span>£{getDeliveryFee().toFixed(2)}</span>
                   </div>
                 )}
+                {getDeliveryFee() === 0 && deliveryOption === 'delivery' && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-green-600 font-medium">Delivery</span>
+                    <span className="text-green-600 font-medium">FREE</span>
+                  </div>
+                )}
                 <div className="border-t border-gray-200 pt-2">
                   <div className="flex justify-between font-bold">
                     <span>Total</span>
@@ -700,6 +737,43 @@ const Checkout = () => {
                   </div>
                 </div>
               </div>
+
+              {/* Delivery Information */}
+              {deliveryOption === 'delivery' && deliveryInfo && (
+                <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+                  <h3 className="text-sm font-bold text-gray-700 mb-2">Delivery Information</h3>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex items-center gap-2">
+                      <span className="text-gray-600">Postcode:</span>
+                      <span className="font-medium">{postcode}</span>
+                    </div>
+                    {deliveryInfo.address && (
+                      <div className="flex items-start gap-2">
+                        <span className="text-gray-600">Address:</span>
+                        <span className="font-medium text-xs">{deliveryInfo.address}</span>
+                      </div>
+                    )}
+                    {deliveryInfo.distance && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-gray-600">Distance:</span>
+                        <span className="font-medium">{deliveryInfo.distance.toFixed(1)} miles</span>
+                      </div>
+                    )}
+                    <div className="pt-2 border-t border-gray-200">
+                      <div className={`flex items-center gap-2 ${deliveryInfo.inDeliveryRange || getCartTotal() >= 30 ? 'text-green-600' : 'text-orange-600'}`}>
+                        <span className="font-bold">
+                          {deliveryInfo.inDeliveryRange 
+                            ? '✓ FREE delivery (within 3.5 miles)'
+                            : getCartTotal() >= 30 
+                              ? '✓ FREE delivery (order £30+)'
+                              : '£2 delivery fee (outside 3.5 miles, under £30)'
+                          }
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* SSL Badge */}
               <div className="border-t border-gray-200 pt-4">

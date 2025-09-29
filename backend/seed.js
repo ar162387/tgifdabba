@@ -172,7 +172,7 @@ const seedData = async () => {
         name: 'Chapati 6 pieces (Add On)',
         description: 'Freshly made whole wheat flatbreads, soft and fluffy',
         allergens: ['Gluten'],
-        price: 2.99,
+        price: 3.0,
         active: true,
         imageUrl: '/images/food-image-sizzle.png'
       },

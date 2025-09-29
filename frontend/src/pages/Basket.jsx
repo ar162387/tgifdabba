@@ -4,6 +4,7 @@ import Button from '../components/ui/Button';
 import { useBasket } from '../contexts/BasketContext';
 import { validatePostalCode, getDeliveryAreaInfo } from '../services/geocodingService';
 import { TIME_CONFIG, getMenuDay, isOrderingDisabled } from '../config/timeConfig';
+import PostcodeInput from '../components/ui/PostcodeInput';
 
 const Basket = () => {
   const navigate = useNavigate();
@@ -12,10 +13,14 @@ const Basket = () => {
     deliveryOption,
     specialRequests,
     currentMenuDay,
+    postcode,
+    deliveryInfo,
     addToCart,
     removeFromCart,
     setDeliveryOption,
     setSpecialRequests,
+    setPostcode,
+    setDeliveryInfo,
     getCartTotal,
     getTotalItems,
     getItemQuantity,
@@ -25,13 +30,11 @@ const Basket = () => {
     clearCartIfDifferentDay
   } = useBasket();
 
-  const [postalCode, setPostalCode] = useState('');
-  const [deliveryCheck, setDeliveryCheck] = useState(null);
   const [isCheckingDelivery, setIsCheckingDelivery] = useState(false);
-  const [deliveryInfo, setDeliveryInfo] = useState(null);
   const [isOrderingAllowed, setIsOrderingAllowed] = useState(true);
   const [orderingStatusMessage, setOrderingStatusMessage] = useState('');
   const [showCartClearedModal, setShowCartClearedModal] = useState(false);
+  const [postcodeError, setPostcodeError] = useState('');
 
   // Check if ordering is currently disabled using global config
   const checkOrderingStatus = () => {
@@ -55,46 +58,89 @@ const Basket = () => {
     }
   }, [validateCartForMenuDay, clearCartIfDifferentDay]);
 
-  // Collection address (dummy data)
-  const collectionAddress = "123 High Street, Orpington, BR6 0AB";
+  // Collection address 
+  const collectionAddress = "264 Southborough Lane, BR2 8AS";
   
   // Get delivery area info
   const deliveryAreaInfo = getDeliveryAreaInfo();
 
   // Handle postal code check using geocoding API
   const checkDelivery = async () => {
-    if (!postalCode.trim()) {
-      alert('Please enter a postal code');
+    if (!postcode.trim()) {
+      setPostcodeError('Please enter a postal code');
       return;
     }
 
     setIsCheckingDelivery(true);
-    setDeliveryCheck(null);
-    setDeliveryInfo(null);
+    setPostcodeError('');
 
     try {
-      const result = await validatePostalCode(postalCode);
+      const result = await validatePostalCode(postcode);
       
-      setDeliveryCheck(result.inDeliveryRange);
+      // Check if the postcode is valid (success: true and in delivery area)
+      if (!result.success || !result.areaCode) {
+        // Invalid postcode - show error and don't store delivery info
+        setPostcodeError(result.message || 'Please enter a valid postal code');
+        setDeliveryInfo(null); // Clear any previous delivery info
+        return;
+      }
+      
+      // Valid postcode - store the delivery info
       setDeliveryInfo(result);
       
       // Show success/error message
       if (result.inDeliveryRange) {
         console.log('✅ Delivery available:', result);
       } else {
-        console.log('❌ Delivery not available:', result);
+        console.log('ℹ️ Delivery available outside range:', result);
       }
     } catch (error) {
       console.error('Error checking delivery:', error);
-      setDeliveryCheck(false);
-      setDeliveryInfo({
-        success: false,
-        message: 'Error checking delivery availability. Please try again.',
-        inDeliveryRange: false
-      });
+      setPostcodeError('We don\'t deliver there or wrong postcode');
+      setDeliveryInfo(null); // Clear any previous delivery info
     } finally {
       setIsCheckingDelivery(false);
     }
+  };
+
+  // Handle checkout with postal code validation
+  const handleCheckout = async () => {
+    // Check if delivery is selected
+    if (deliveryOption === 'delivery') {
+      // Check if no postal code is entered
+      if (!postcode || !deliveryInfo) {
+        setPostcodeError('Please enter a valid postal code');
+        return;
+      }
+      
+      // Re-validate the postal code to ensure it's still valid
+      try {
+        setIsCheckingDelivery(true);
+        setPostcodeError('');
+        const validationResult = await validatePostalCode(postcode);
+        
+        // Check if the postcode is still valid (success: true and in delivery area)
+        if (!validationResult.success || !validationResult.areaCode) {
+          // Invalid postcode - show error on input field
+          setPostcodeError('Please enter a valid postal code');
+          setIsCheckingDelivery(false);
+          return;
+        }
+        
+        // Update delivery info with fresh validation
+        setDeliveryInfo(validationResult);
+        setIsCheckingDelivery(false);
+      } catch (error) {
+        console.error('Postcode re-validation failed:', error);
+        // If validation fails, show error on input field
+        setPostcodeError('Please enter a valid postal code');
+        setIsCheckingDelivery(false);
+        return;
+      }
+    }
+    
+    // Proceed to checkout
+    navigate('/checkout');
   };
 
   // Show empty cart state
@@ -106,7 +152,7 @@ const Basket = () => {
             <h1 className="text-2xl sm:text-4xl font-bold mb-4">Your Basket</h1>
             <p className="text-lg sm:text-xl text-gray-600 mb-6 sm:mb-8">Your basket is empty</p>
             <Button 
-              onClick={() => window.history.back()} 
+              onClick={() => navigate('/menu')} 
               variant="primary"
               size="large"
             >
@@ -136,9 +182,6 @@ const Basket = () => {
               <div className="text-center">
                 <p className="text-red-700 font-bold text-lg mb-2">🚫 Ordering Temporarily Disabled</p>
                 <p className="text-red-600 text-sm">{orderingStatusMessage}</p>
-                <p className="text-red-600 text-xs mt-2 italic">
-                  Orders for today will be taken and delivered until 12:00 PM
-                </p>
               </div>
             </div>
           )}
@@ -184,19 +227,32 @@ const Basket = () => {
                   </div>
                   
                   <div>
-                    <p className="text-sm font-medium text-gray-600 mb-2">Free Delivery Info</p>
-                    <p className="text-sm sm:text-lg font-bold">£{deliveryAreaInfo.minimumOrder} minimum order within 3 miles</p>
-                  </div>
-                  
-                  <div>
                     <p className="text-sm font-medium text-gray-600 mb-2">Check if we deliver to you</p>
                     <div className="flex flex-col sm:flex-row gap-2">
-                      <input
-                        type="text"
-                        value={postalCode}
-                        onChange={(e) => setPostalCode(e.target.value)}
+                      <PostcodeInput
+                        value={postcode}
+                        onChange={(newPostcode) => {
+                          setPostcode(newPostcode);
+                          // Clear any previous errors when user types
+                          if (postcodeError) {
+                            setPostcodeError('');
+                          }
+                        }}
+                        onSelect={(suggestion) => {
+                          // Clear any previous errors
+                          setPostcodeError('');
+                          // Save the selected address and auto-check delivery
+                          setDeliveryInfo({
+                            postcode: suggestion.postcode,
+                            address: suggestion.address,
+                            coordinates: { lat: suggestion.lat, lon: suggestion.lon },
+                            displayName: suggestion.displayName
+                          });
+                          setTimeout(() => checkDelivery(), 100);
+                        }}
                         placeholder="Enter your postal code"
-                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent text-sm"
+                        className="flex-1"
+                        disabled={isCheckingDelivery}
                       />
                       <Button
                         onClick={checkDelivery}
@@ -209,6 +265,13 @@ const Basket = () => {
                       </Button>
                     </div>
                     
+                    {/* Postcode Error Display */}
+                    {postcodeError && (
+                      <div className="mt-2">
+                        <p className="text-red-600 text-sm">{postcodeError}</p>
+                      </div>
+                    )}
+                    
                     {isCheckingDelivery && (
                       <div className="flex items-center gap-2 mt-2">
                         <div className="w-4 h-4 border-2 border-gray-300 border-t-black rounded-full animate-spin"></div>
@@ -216,7 +279,7 @@ const Basket = () => {
                       </div>
                     )}
                     
-                    {!isCheckingDelivery && deliveryCheck === true && deliveryInfo && (
+                    {!isCheckingDelivery && deliveryInfo && deliveryInfo.inDeliveryRange && (
                       <div className="mt-2">
                         <p className="text-green-600 font-medium">✓ {deliveryInfo.message}</p>
                         {deliveryInfo.areaCode && (
@@ -229,15 +292,25 @@ const Basket = () => {
                             {deliveryInfo.address}
                           </p>
                         )}
+                        {deliveryInfo.distance && (
+                          <p className="text-sm text-gray-600 mt-1">
+                            Distance: {deliveryInfo.distance.toFixed(1)} miles
+                          </p>
+                        )}
                       </div>
                     )}
                     
-                    {!isCheckingDelivery && deliveryCheck === false && deliveryInfo && (
+                    {!isCheckingDelivery && deliveryInfo && !deliveryInfo.inDeliveryRange && (
                       <div className="mt-2">
-                        <p className="text-red-600 font-medium">✗ {deliveryInfo.message}</p>
+                        <p className="text-blue-600 font-medium">Order more than £30 to get free delivery</p>
                         {deliveryInfo.address && (
                           <p className="text-sm text-gray-600 mt-1">
                             Location: {deliveryInfo.address}
+                          </p>
+                        )}
+                        {deliveryInfo.distance && (
+                          <p className="text-sm text-gray-600 mt-1">
+                            Distance: {deliveryInfo.distance.toFixed(1)} miles
                           </p>
                         )}
                       </div>
@@ -246,8 +319,7 @@ const Basket = () => {
                   
                   <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
                     <p className="text-sm text-gray-700">
-                      <strong>Delivery Times:</strong> 45-60 minutes<br/>
-                      <strong>Time Slots:</strong> 11:00 AM - 1:00 PM, 6:00 PM - 8:00 PM
+                      <strong>Time Slots:</strong>  6:00 PM - 8:00 PM
                     </p>
                   </div>
                 </div>
@@ -265,15 +337,12 @@ const Basket = () => {
                     <p className="text-sm sm:text-lg font-bold break-words">{collectionAddress}</p>
                   </div>
                   
-                  <div>
-                    <p className="text-sm font-medium text-gray-600 mb-2">Collection Time</p>
-                    <p className="text-sm sm:text-lg font-bold">ASAP (15-20 minutes)</p>
-                  </div>
+                 
                   
                   <div className="bg-green-50 border border-green-200 rounded-lg p-4">
                     <p className="text-sm text-gray-700">
                       <strong>Collection Hours:</strong> 11:00 AM - 1:00 PM, 6:00 PM - 8:00 PM<br/>
-                      <strong>No delivery fee for collection orders!</strong>
+                     
                     </p>
                   </div>
                 </div>
@@ -508,17 +577,17 @@ const Basket = () => {
           {/* Action Buttons - Mobile Responsive */}
           <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
             <Button
-              onClick={() => navigate('/checkout')}
+              onClick={handleCheckout}
               variant="black"
               size="large"
               className="flex-1 order-1"
-              disabled={!isOrderingAllowed}
+              disabled={!isOrderingAllowed || isCheckingDelivery}
             >
-              {!isOrderingAllowed ? 'Ordering Disabled' : 'Proceed to Checkout'}
+              {!isOrderingAllowed ? 'Ordering Disabled' : isCheckingDelivery ? 'Validating...' : 'Proceed to Checkout'}
             </Button>
             
             <Button
-              onClick={() => window.history.back()}
+              onClick={() => navigate('/menu')}
               variant="secondary"
               size="large"
               className="flex-1 order-2"
@@ -528,10 +597,24 @@ const Basket = () => {
           </div>
 
           {/* Free Delivery Notice */}
-          {deliveryOption === 'delivery' && getCartTotal() < deliveryAreaInfo.minimumOrder && (
+          {deliveryOption === 'delivery' && deliveryInfo && !deliveryInfo.inDeliveryRange && getCartTotal() < deliveryAreaInfo.freeDeliveryThreshold && (
             <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
               <p className="text-sm text-center">
-                Spend £{(deliveryAreaInfo.minimumOrder - getCartTotal()).toFixed(2)} more for free delivery!
+                Spend £{(deliveryAreaInfo.freeDeliveryThreshold - getCartTotal()).toFixed(2)} more for FREE delivery!
+              </p>
+            </div>
+          )}
+          
+          {/* Free Delivery Confirmation */}
+          {deliveryOption === 'delivery' && deliveryInfo && (
+            <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+              <p className="text-sm text-center text-green-700 font-medium">
+                {deliveryInfo.inDeliveryRange 
+                  ? `✓ FREE delivery! You're within ${deliveryAreaInfo.freeDeliveryRadius} miles.`
+                  : getCartTotal() >= deliveryAreaInfo.freeDeliveryThreshold 
+                    ? `✓ FREE delivery! Your order is £${deliveryAreaInfo.freeDeliveryThreshold}+.`
+                    : `Delivery fee: £${deliveryAreaInfo.deliveryFee}`
+                }
               </p>
             </div>
           )}

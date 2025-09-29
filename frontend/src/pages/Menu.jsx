@@ -5,6 +5,8 @@ import { dailyMenuService } from '../services/dailyMenuService';
 import { MenuPageSkeleton, MenuItemSkeleton, SectionHeaderSkeleton, CartSkeleton, NavigationSkeleton, PageHeaderSkeleton } from '../components/ui/MenuSkeleton';
 import { useBasket } from '../contexts/BasketContext';
 import { TIME_CONFIG, getCurrentTime, getMenuDay, isOrderingDisabled } from '../config/timeConfig';
+import { validatePostalCode, getDeliveryAreaInfo } from '../services/geocodingService';
+import PostalCodeModal from '../components/ui/PostalCodeModal';
 
 const Menu = () => {
   const navigate = useNavigate();
@@ -17,10 +19,14 @@ const Menu = () => {
     deliveryOption,
     specialRequests,
     currentMenuDay,
+    postcode,
+    deliveryInfo,
     addToCart,
     removeFromCart,
     setDeliveryOption,
     setSpecialRequests,
+    setPostcode,
+    setDeliveryInfo,
     getCartTotal,
     getTotalItems,
     getItemQuantity,
@@ -37,12 +43,138 @@ const Menu = () => {
   const [isFallbackMenu, setIsFallbackMenu] = useState(false);
   const [isOrderingAllowed, setIsOrderingAllowed] = useState(true);
   const [orderingStatusMessage, setOrderingStatusMessage] = useState('');
+  const [isCheckingDelivery, setIsCheckingDelivery] = useState(false);
+  const [showPostalCodeModal, setShowPostalCodeModal] = useState(false);
+
+  // Get delivery area info
+  const deliveryAreaInfo = getDeliveryAreaInfo();
 
   // Function to check if ordering is currently allowed
   const checkOrderingStatus = () => {
     const { disabled, message } = isOrderingDisabled();
     setIsOrderingAllowed(!disabled);
     setOrderingStatusMessage(message);
+  };
+
+  // Handle postal code check using geocoding API
+  const checkDelivery = async () => {
+    if (!postcode.trim()) {
+      alert('Please enter a postal code');
+      return;
+    }
+
+    setIsCheckingDelivery(true);
+
+    try {
+      const result = await validatePostalCode(postcode);
+      
+      // Store the delivery info in the basket store
+      setDeliveryInfo(result);
+      
+      // Show success/error message
+      if (result.inDeliveryRange) {
+        console.log('✅ Delivery available:', result);
+      } else {
+        console.log('❌ Delivery not available:', result);
+      }
+    } catch (error) {
+      console.error('Error checking delivery:', error);
+      setDeliveryInfo({
+        success: false,
+        message: 'Error checking delivery availability. Please try again.',
+        inDeliveryRange: false
+      });
+    } finally {
+      setIsCheckingDelivery(false);
+    }
+  };
+
+  // Handle postal code check with specific postcode parameter
+  const checkDeliveryWithPostcode = async (specificPostcode) => {
+    if (!specificPostcode.trim()) {
+      alert('Please enter a postal code');
+      return;
+    }
+
+    setIsCheckingDelivery(true);
+
+    try {
+      const result = await validatePostalCode(specificPostcode);
+      
+      // Store the delivery info in the basket store
+      setDeliveryInfo(result);
+      
+      // Show success/error message
+      if (result.inDeliveryRange) {
+        console.log('✅ Delivery available:', result);
+      } else {
+        console.log('❌ Delivery not available:', result);
+      }
+    } catch (error) {
+      console.error('Error checking delivery:', error);
+      setDeliveryInfo({
+        success: false,
+        message: 'Error checking delivery availability. Please try again.',
+        inDeliveryRange: false
+      });
+    } finally {
+      setIsCheckingDelivery(false);
+    }
+  };
+
+  // Handle postal code validation from modal
+  const handlePostcodeValidated = (postcodeData) => {
+    setPostcode(postcodeData.postcode);
+    setDeliveryInfo(postcodeData.deliveryInfo);
+    setShowPostalCodeModal(false);
+  };
+
+  // Handle checkout with postal code validation
+  const handleCheckout = async () => {
+    // Check if delivery is selected
+    if (deliveryOption === 'delivery') {
+      // Check if no postal code is entered
+      if (!postcode || !deliveryInfo) {
+        setShowPostalCodeModal(true);
+        return;
+      }
+      
+      // Re-validate the postal code to ensure it's still valid
+      try {
+        setIsCheckingDelivery(true);
+        const validationResult = await validatePostalCode(postcode);
+        
+        // Check if the postcode is still valid (success: true and in delivery area)
+        if (!validationResult.success || !validationResult.areaCode) {
+          // Invalid postcode - show modal to correct it
+          setShowPostalCodeModal(true);
+          setIsCheckingDelivery(false);
+          return;
+        }
+        
+        // Update delivery info with fresh validation
+        setDeliveryInfo(validationResult);
+        setIsCheckingDelivery(false);
+      } catch (error) {
+        console.error('Postcode re-validation failed:', error);
+        // If validation fails, show modal to correct postcode
+        setShowPostalCodeModal(true);
+        setIsCheckingDelivery(false);
+        return;
+      }
+    }
+    
+    // Proceed to checkout
+    navigate('/checkout');
+  };
+
+  // Check if postal code is required and show modal
+  const checkPostalCodeRequirement = () => {
+    if (deliveryOption === 'delivery' && (!postcode || !deliveryInfo)) {
+      setShowPostalCodeModal(true);
+      return false;
+    }
+    return true;
   };
 
   // Check ordering status and update menu day on component mount and set up interval
@@ -115,11 +247,26 @@ const Menu = () => {
     loadMenuData();
   }, [currentDay]);
 
+  // Show postal code modal when delivery is selected and no postcode is entered
+  // But don't block the user from adding items to cart
+  useEffect(() => {
+    if (deliveryOption === 'delivery' && (!postcode || !deliveryInfo)) {
+      // Only show modal if user hasn't dismissed it recently
+      const lastDismissed = localStorage.getItem('postalCodeModalDismissed');
+      const now = Date.now();
+      const oneHour = 60 * 60 * 1000; // 1 hour in milliseconds
+      
+      if (!lastDismissed || (now - parseInt(lastDismissed)) > oneHour) {
+        setShowPostalCodeModal(true);
+      }
+    }
+  }, [deliveryOption, postcode, deliveryInfo]);
+
   // Delivery timing data
   const deliveryTimings = {
     delivery: {
-      eta: "45-60 mins",
-      windows: ["11:00 AM - 1:00 PM", "6:00 PM - 8:00 PM"],
+      eta: "6:00 PM - 8:00 PM",
+      windows: [ "6:00 PM - 8:00 PM"],
       fee: 3.0
     },
     collection: {
@@ -313,18 +460,21 @@ const Menu = () => {
                 <div className="text-center">
                   <p className="text-red-700 font-bold text-lg mb-2">🚫 Ordering Temporarily Disabled</p>
                   <p className="text-red-600 text-sm">{orderingStatusMessage}</p>
-                  <p className="text-red-600 text-xs mt-2 italic">
-                    Orders for today will be taken and delivered until 12:00 PM
-                  </p>
                 </div>
               </div>
             )}
+
             
             {/* Delivery Options */}
             <div className="flex justify-center mb-6">
               <div className="bg-white/20 backdrop-blur-sm rounded-full p-1 flex">
                 <button
-                  onClick={() => setDeliveryOption('delivery')}
+                  onClick={() => {
+                    setDeliveryOption('delivery');
+                    if (!postcode || !deliveryInfo) {
+                      setShowPostalCodeModal(true);
+                    }
+                  }}
                   className={`px-6 py-2 rounded-full font-medium transition-all ${
                     deliveryOption === 'delivery'
                       ? 'bg-charcoal text-accent-yellow'
@@ -352,22 +502,72 @@ const Menu = () => {
                 <div>
                   <p className="text-sm font-medium text-charcoal/70 mb-2">Delivery Areas</p>
                   <p className="text-lg font-bold text-charcoal">
-                    BR1 - BR7, Orpington
+                    BR1 - BR7
                   </p>
                 </div>
                 
                 <div>
                   <p className="text-sm font-medium text-charcoal/70 mb-2">Free Delivery</p>
                   <p className="text-lg font-bold text-charcoal">
-                    £20 minimum order within 3 miles
+                    Free Delviery of minimum £30 outside 3.5 miles
                   </p>
                 </div>
+
+                {deliveryOption === 'delivery' && (
+                  <div className="pt-4 border-t border-charcoal/20">
+                    <div className="flex items-center justify-center gap-3 mb-2">
+                      <p className="text-sm font-medium text-charcoal/70">Your Location</p>
+                      <button
+                        onClick={() => setShowPostalCodeModal(true)}
+                        className="text-xs bg-charcoal text-accent-yellow px-2 py-1 rounded-full hover:bg-charcoal/90 transition-colors"
+                      >
+                        {postcode ? 'Change' : 'Set Location'}
+                      </button>
+                    </div>
+                    {postcode && deliveryInfo ? (
+                      <>
+                        <p className="text-lg font-bold text-charcoal mb-2">{postcode}</p>
+                        <div className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${
+                          deliveryInfo.inDeliveryRange 
+                            ? 'bg-green-100 text-green-800' 
+                            : 'bg-orange-100 text-orange-800'
+                        }`}>
+                          {deliveryInfo.inDeliveryRange ? '✓ Delivery Available' : 'ℹ️ Delivery Available'}
+                        </div>
+                        {deliveryInfo.distance && (
+                          <p className="text-sm text-charcoal/70 mt-1">
+                            Distance: {deliveryInfo.distance.toFixed(1)} miles
+                          </p>
+                        )}
+                        
+                        {/* Dynamic delivery message */}
+                        <div className="mt-2">
+                          {deliveryInfo.inDeliveryRange ? (
+                            <p className="text-sm text-green-700 font-medium">
+                              You have got a free delivery
+                            </p>
+                          ) : (
+                            <p className="text-sm text-blue-700 font-medium">
+                              £30 order for free delivery
+                            </p>
+                          )}
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-sm text-charcoal/70 italic">
+                          Click "Set Location" to check delivery availability
+                        </p>
+                        <div className="mt-2">
+                          <p className="text-sm text-gray-600 font-medium">
+                            Postal code not selected
+                          </p>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
                 
-                <div className="pt-2 border-t border-charcoal/20">
-                  <p className="text-xs text-charcoal/60 italic">
-                    Orders for today will be taken and delivered until 12:00 PM
-                  </p>
-                </div>
               </div>
             </div>
           </div>
@@ -579,17 +779,17 @@ const Menu = () => {
                   </div>
 
                   <Button
-                    onClick={() => navigate('/checkout')}
+                    onClick={handleCheckout}
                     variant="secondary"
                     className="w-full"
-                    disabled={!isOrderingAllowed}
+                    disabled={!isOrderingAllowed || isCheckingDelivery}
                   >
-                    {!isOrderingAllowed ? 'Ordering Disabled' : 'Proceed to Checkout'}
+                    {!isOrderingAllowed ? 'Ordering Disabled' : isCheckingDelivery ? 'Validating...' : 'Proceed to Checkout'}
                   </Button>
 
-                  {getCartTotal() < 20 && (
+                  {deliveryOption === 'delivery' && deliveryInfo && !deliveryInfo.inDeliveryRange && getCartTotal() < deliveryAreaInfo.freeDeliveryThreshold && (
                     <p className="text-xs text-center mt-2 text-charcoal/70">
-                      Spend £{(20 - getCartTotal()).toFixed(2)} more for free delivery!
+                      Spend £{(deliveryAreaInfo.freeDeliveryThreshold - getCartTotal()).toFixed(2)} more for free delivery!
                     </p>
                   )}
                 </>
@@ -706,16 +906,24 @@ const Menu = () => {
               <p className="font-bold text-xl">£{getFinalTotal().toFixed(2)}</p>
             </div>
             <Button
-              onClick={() => navigate('/checkout')}
+              onClick={handleCheckout}
               variant="secondary"
               size="default"
-              disabled={!isOrderingAllowed}
+              disabled={!isOrderingAllowed || isCheckingDelivery}
             >
-              {!isOrderingAllowed ? 'Disabled' : 'Checkout'}
+              {!isOrderingAllowed ? 'Disabled' : isCheckingDelivery ? 'Validating...' : 'Checkout'}
             </Button>
           </div>
         </div>
       )}
+
+      {/* Postal Code Modal */}
+      <PostalCodeModal
+        isOpen={showPostalCodeModal}
+        onClose={() => setShowPostalCodeModal(false)}
+        onPostcodeValidated={handlePostcodeValidated}
+        currentPostcode={postcode}
+      />
       </div>
     </>
   );

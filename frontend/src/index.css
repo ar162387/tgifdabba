@@ -237,3 +237,42 @@ html {
   border-radius: 8px !important;
 }
 
+/* Footer Link Styles with Theme Colors */
+.footer-link {
+  color: #ffffff !important;
+  text-decoration: none !important;
+  padding: 12px 24px !important;
+  border-radius: 8px !important;
+  transition: all 0.3s ease !important;
+  position: relative !important;
+  overflow: hidden !important;
+}
+
+.footer-link::before {
+  content: '' !important;
+  position: absolute !important;
+  top: 0 !important;
+  left: -100% !important;
+  width: 100% !important;
+  height: 100% !important;
+  background: linear-gradient(90deg, transparent, #FFD166, transparent) !important;
+  transition: left 0.5s ease !important;
+  z-index: -1 !important;
+}
+
+.footer-link:hover {
+  color: #fb7500 !important;
+  background-color: #FFD166 !important;
+  transform: translateY(-2px) !important;
+  box-shadow: 0 4px 12px rgba(255, 209, 102, 0.3) !important;
+}
+
+.footer-link:hover::before {
+  left: 100% !important;
+}
+
+.footer-link:active {
+  transform: translateY(0) !important;
+  box-shadow: 0 2px 6px rgba(255, 209, 102, 0.2) !important;
+}
+

@@ -1,7 +1,10 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import Button from '../components/ui/Button';
 
 const About = () => {
+  const navigate = useNavigate();
+
   return (
     <div className="min-h-screen bg-primary-orange pt-24">
       <div className="max-w-7xl mx-auto px-6 py-16">
@@ -38,7 +41,11 @@ const About = () => {
             
             {/* Call to action */}
             <div className="pt-8">
-              <Button variant="primary" size="large">
+              <Button 
+                variant="primary" 
+                size="large"
+                onClick={() => navigate('/menu')}
+              >
                 Order Now
               </Button>
             </div>

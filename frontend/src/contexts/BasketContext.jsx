@@ -24,6 +24,8 @@ export function BasketProvider({ children }) {
     deliveryOption: store.deliveryOption,
     specialRequests: store.specialRequests,
     currentMenuDay: store.currentMenuDay,
+    postcode: store.postcode,
+    deliveryInfo: store.deliveryInfo,
     
     // Actions
     addToCart: store.addToCart,
@@ -32,6 +34,8 @@ export function BasketProvider({ children }) {
     clearCart: store.clearCart,
     setDeliveryOption: store.setDeliveryOption,
     setSpecialRequests: store.setSpecialRequests,
+    setPostcode: store.setPostcode,
+    setDeliveryInfo: store.setDeliveryInfo,
     validateCartForMenuDay: store.validateCartForMenuDay,
     clearCartIfDifferentDay: store.clearCartIfDifferentDay,
     

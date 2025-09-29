@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Phone, User, MessageSquare, Send, CheckCircle } from 'lucide-react';
+import { Phone, User, MessageSquare, Send, CheckCircle, MessageCircle } from 'lucide-react';
 import { contactService } from '../services/contactService';
 import Button from '../components/ui/Button';
 import toast from 'react-hot-toast';
@@ -110,21 +110,53 @@ const ContactUs = () => {
     <div className="min-h-screen bg-primary-orange pt-24 pb-16">
       <div className="max-w-6xl mx-auto px-6">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
-          {/* Left Side - Contact Info Card */}
-          <div className="order-2 lg:order-1">
+          {/* Left Side - Single Contact Card */}
+          <div>
             <div className="bg-transparent border-2 border-accent-yellow rounded-2xl shadow-2xl p-8 h-full">
               <h1 className="text-4xl md:text-5xl font-bold text-accent-yellow mb-6">
                 Contact Us
               </h1>
-              <p className="text-xl text-accent-yellow leading-relaxed">
+              <p className="text-xl text-accent-yellow leading-relaxed mb-8">
                 We'd love to hear from you. Send us a message and we'll respond as soon as possible.
               </p>
+              
+              {/* Direct Contact Section */}
+              <div className="space-y-6">
+                <div className="text-center">
+                  <div className="w-16 h-16 bg-accent-yellow/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <Phone className="w-8 h-8 text-accent-yellow" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-accent-yellow mb-2">Call Us Directly</h3>
+                  <p className="text-xl font-bold text-accent-yellow mb-4">+44-7401195090</p>
+                  <p className="text-sm text-accent-yellow/80">
+                    Available for calls and WhatsApp messages
+                  </p>
+                </div>
+                
+                <div className="text-center">
+                  <div className="w-16 h-16 bg-accent-yellow/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <MessageCircle className="w-8 h-8 text-accent-yellow" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-accent-yellow mb-2">WhatsApp</h3>
+                  <p className="text-sm text-accent-yellow/80 mb-4">
+                    Send us a message on WhatsApp for quick responses
+                  </p>
+                  <a 
+                    href="https://wa.me/447401195090" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="inline-block bg-green-500 hover:bg-green-600 text-white px-6 py-3 rounded-lg font-medium transition-colors"
+                  >
+                    Chat on WhatsApp
+                  </a>
+                </div>
+              </div>
             </div>
           </div>
 
           {/* Right Side - Contact Form */}
-          <div className="order-1 lg:order-2">
-            <div className="bg-transparent border-2 border-accent-yellow rounded-2xl shadow-2xl p-8">
+          <div>
+            <div className="bg-transparent border-2 border-accent-yellow rounded-2xl shadow-2xl p-8 h-full">
               <h2 className="text-2xl font-bold text-accent-yellow mb-6">Send us a Message</h2>
             
             <form onSubmit={handleSubmit} className="space-y-6">
