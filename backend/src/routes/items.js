@@ -6,7 +6,8 @@ import {
   updateItem,
   deleteItem,
   toggleItemStatus,
-  checkItemUsage
+  checkItemUsage,
+  bulkDeleteItems
 } from '../controllers/itemController.js';
 import { authenticateToken } from '../middleware/auth.js';
 import { validateItem } from '../middleware/validate.js';
@@ -23,6 +24,7 @@ router.get('/', realtimeLimiter, getAllItems); // Use lenient rate limiter for f
 router.get('/:id', getItemById);
 router.get('/:id/usage', checkItemUsage);
 router.post('/', uploadSingleImage, handleUploadError, validateItem, createItem);
+router.post('/bulk-delete', bulkDeleteItems);
 router.put('/:id', uploadSingleImage, handleUploadError, validateItem, updateItem);
 router.delete('/:id', deleteItem);
 router.patch('/:id/toggle-status', toggleItemStatus);

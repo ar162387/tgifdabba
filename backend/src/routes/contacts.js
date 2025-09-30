@@ -5,7 +5,8 @@ import {
   markContactAsRead,
   respondToContact,
   deleteContact,
-  getContactStats
+  getContactStats,
+  bulkDeleteContacts
 } from '../controllers/contactController.js';
 import { authenticateToken } from '../middleware/auth.js';
 
@@ -18,6 +19,7 @@ router.use(authenticateToken);
 router.get('/', getAllContacts);
 router.get('/stats', getContactStats);
 router.get('/:id', getContactById);
+router.post('/bulk-delete', bulkDeleteContacts);
 router.patch('/:id/read', markContactAsRead);
 router.patch('/:id/respond', respondToContact);
 router.delete('/:id', deleteContact);

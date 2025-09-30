@@ -83,6 +83,13 @@ router.delete(
   orderController.deleteOrder
 );
 
+router.post(
+  '/bulk-delete',
+  authenticateToken,
+  general,
+  orderController.bulkDeleteOrders
+);
+
 // Stripe-specific routes
 router.post(
   '/:orderId/confirm-payment',

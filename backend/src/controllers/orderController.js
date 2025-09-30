@@ -1131,6 +1131,60 @@ const createOrderWithPayment = async (req, res) => {
   }
 };
 
+// Bulk delete orders (admin only)
+const bulkDeleteOrders = async (req, res) => {
+  try {
+    const { orderIds } = req.body;
+
+    if (!orderIds || !Array.isArray(orderIds) || orderIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Order IDs array is required'
+      });
+    }
+
+    // Find all orders by their custom orderIds or MongoDB _ids
+    const orders = await Order.find({
+      $or: [
+        { orderId: { $in: orderIds } },
+        { _id: { $in: orderIds } }
+      ]
+    });
+
+    if (orders.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'No orders found'
+      });
+    }
+
+    // Delete all orders
+    await Order.deleteMany({ _id: { $in: orders.map(o => o._id) } });
+
+    logger.info(`Bulk orders deleted: ${orders.length}`, {
+      deletedBy: req.user?.email || 'system',
+      count: orders.length,
+      orderIds: orders.map(o => o.orderId)
+    });
+
+    res.json({
+      success: true,
+      message: `${orders.length} order(s) deleted successfully`,
+      data: {
+        deletedCount: orders.length,
+        orderIds: orders.map(o => o.orderId)
+      }
+    });
+
+  } catch (error) {
+    logger.error('Error bulk deleting orders:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error while deleting orders'
+    });
+  }
+};
+
 export {
   createOrder,
   createOrderWithPayment,
@@ -1142,6 +1196,7 @@ export {
   cancelOrder,
   getOrderStats,
   deleteOrder,
+  bulkDeleteOrders,
   confirmStripePayment,
   createStripeRefund
 };
@@ -1157,6 +1212,7 @@ export default {
   cancelOrder,
   getOrderStats,
   deleteOrder,
+  bulkDeleteOrders,
   confirmStripePayment,
   createStripeRefund
 };

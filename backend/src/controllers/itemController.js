@@ -378,3 +378,114 @@ export const toggleItemStatus = async (req, res, next) => {
     next(error);
   }
 };
+
+export const bulkDeleteItems = async (req, res, next) => {
+  try {
+    const { itemIds } = req.body;
+
+    if (!itemIds || !Array.isArray(itemIds) || itemIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Item IDs array is required'
+      });
+    }
+
+    const items = await Item.find({ _id: { $in: itemIds } });
+    
+    if (items.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'No items found'
+      });
+    }
+
+    const affectedMenusMap = new Map();
+    
+    // Process each item deletion
+    for (const item of items) {
+      // Check if item is used in any daily menu sections
+      const dailyMenusWithItem = await DailyMenu.find({
+        $or: [
+          { items: item._id },
+          { 'sections.itemIds': item._id }
+        ]
+      }).populate('sections.itemIds', 'name');
+
+      if (dailyMenusWithItem.length > 0) {
+        // Remove item from all daily menu sections and items arrays
+        for (const menu of dailyMenusWithItem) {
+          let menuUpdated = false;
+          
+          // Remove from main items array
+          if (menu.items.includes(item._id)) {
+            menu.items = menu.items.filter(id => !id.equals(item._id));
+            menuUpdated = true;
+          }
+          
+          // Remove from all sections
+          menu.sections.forEach(section => {
+            if (section.itemIds.includes(item._id)) {
+              section.itemIds = section.itemIds.filter(id => !id.equals(item._id));
+              menuUpdated = true;
+            }
+          });
+          
+          if (menuUpdated) {
+            await menu.save();
+            
+            const menuKey = menu.dayOfWeek;
+            if (!affectedMenusMap.has(menuKey)) {
+              affectedMenusMap.set(menuKey, {
+                dayOfWeek: menu.dayOfWeek,
+                sections: []
+              });
+            }
+            
+            logger.info('Item removed from daily menu', { 
+              itemId: item._id, 
+              itemName: item.name,
+              menuId: menu._id,
+              dayOfWeek: menu.dayOfWeek
+            });
+          }
+        }
+      }
+
+      // Delete image from Cloudinary if it exists
+      if (item.imagePublicId) {
+        try {
+          await deleteImage(item.imagePublicId);
+          logger.info('Image deleted from Cloudinary', { public_id: item.imagePublicId });
+        } catch (deleteError) {
+          logger.error('Failed to delete image from Cloudinary', deleteError);
+        }
+      }
+    }
+
+    // Delete all items from database
+    await Item.deleteMany({ _id: { $in: itemIds } });
+
+    const affectedMenus = Array.from(affectedMenusMap.values());
+
+    logger.info('Bulk items deleted', { 
+      count: items.length,
+      itemIds: itemIds,
+      affectedMenus: affectedMenus.length
+    });
+
+    res.json({
+      success: true,
+      message: `${items.length} item(s) deleted successfully`,
+      data: {
+        deletedCount: items.length,
+        affectedMenus: affectedMenus,
+        message: affectedMenus.length > 0 
+          ? `Items were removed from ${affectedMenus.length} daily menu(s) before deletion`
+          : 'Items were not used in any daily menus'
+      }
+    });
+  } catch (error) {
+    logger.error('Bulk delete items error', error);
+    next(error);
+  }
+};

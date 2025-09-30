@@ -174,3 +174,43 @@ export const getContactStats = async (req, res, next) => {
     next(error);
   }
 };
+
+export const bulkDeleteContacts = async (req, res, next) => {
+  try {
+    const { contactIds } = req.body;
+
+    if (!contactIds || !Array.isArray(contactIds) || contactIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Contact IDs array is required'
+      });
+    }
+
+    const contacts = await Contact.find({ _id: { $in: contactIds } });
+
+    if (contacts.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'No contacts found'
+      });
+    }
+
+    await Contact.deleteMany({ _id: { $in: contactIds } });
+
+    logger.info('Bulk contacts deleted', { 
+      count: contacts.length,
+      contactIds: contactIds
+    });
+
+    res.json({
+      success: true,
+      message: `${contacts.length} contact(s) deleted successfully`,
+      data: {
+        deletedCount: contacts.length
+      }
+    });
+  } catch (error) {
+    logger.error('Bulk delete contacts error', error);
+    next(error);
+  }
+};
