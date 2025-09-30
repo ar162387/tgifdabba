@@ -1,13 +1,12 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
-import { Search, Eye, CheckCircle, Clock, XCircle, Truck, Edit, Trash2, MapPin, Phone, Mail, CreditCard, Package } from 'lucide-react';
+import { Search, Eye, CheckCircle, Clock, XCircle, Truck, Package } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/Table';
 import EmptyState from '../components/ui/EmptyState';
 import { TableSkeleton, FormSkeleton } from '../components/ui/Skeleton';
-import OrderViewModal from '../components/OrderViewModal';
-import { useOrders, useUpdateOrderStatus, useDeleteOrder, useCancelOrder, useUpdatePaymentStatus } from '../hooks/useOrders';
-import { orderService } from '../services/orderService';
+import { useOrderModal } from '../contexts/OrderModalContext';
+import { useOrders } from '../hooks/useOrders';
 import toast from 'react-hot-toast';
 
 const Orders = () => {
@@ -18,10 +17,12 @@ const Orders = () => {
   const [sortOrder, setSortOrder] = useState('desc');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
-  const [selectedOrder, setSelectedOrder] = useState(null);
   const [filteredOrders, setFilteredOrders] = useState([]);
   const [allOrders, setAllOrders] = useState([]);
   const [selectedStatusCard, setSelectedStatusCard] = useState('');
+
+  // Use the global order modal context
+  const { openOrderModalWithData } = useOrderModal();
 
   // Memoized configuration objects
   const statusOptions = useMemo(() => [
@@ -133,10 +134,6 @@ const Orders = () => {
 
   // TanStack Query hooks - only one query needed since we do client-side filtering
   const { data: ordersData, isLoading, error } = useOrders(allOrdersQueryParams);
-  const updateStatusMutation = useUpdateOrderStatus();
-  const updatePaymentStatusMutation = useUpdatePaymentStatus();
-  const deleteOrderMutation = useDeleteOrder();
-  const cancelOrderMutation = useCancelOrder();
 
   // Update allOrders when data changes (use ordersData for status cards and table)
   useEffect(() => {
@@ -148,16 +145,22 @@ const Orders = () => {
   // Handle pre-selected order from notification panel via location state
   useEffect(() => {
     const selectedOrderId = location.state?.selectedOrderId;
+    const selectedOrderData = location.state?.selectedOrderData;
     if (selectedOrderId && allOrders.length > 0) {
       // Find the full order data by orderId
       const fullOrder = allOrders.find(order => order.orderId === selectedOrderId);
       if (fullOrder) {
-        setSelectedOrder(fullOrder);
+        openOrderModalWithData(fullOrder);
         // Clear the location state to prevent re-opening on page refresh
         window.history.replaceState({}, document.title, window.location.pathname);
       }
+    } else if (selectedOrderData) {
+      // Use the provided order data directly
+      openOrderModalWithData(selectedOrderData);
+      // Clear the location state to prevent re-opening on page refresh
+      window.history.replaceState({}, document.title, window.location.pathname);
     }
-  }, [location.state?.selectedOrderId, allOrders]);
+  }, [location.state?.selectedOrderId, location.state?.selectedOrderData, allOrders, openOrderModalWithData]);
 
   // Client-side filtering - no re-renders that affect input focus
   useEffect(() => {
@@ -188,57 +191,10 @@ const Orders = () => {
   const orders = useMemo(() => filteredOrders, [filteredOrders]);
   const totalPages = useMemo(() => Math.ceil(filteredOrders.length / itemsPerPage), [filteredOrders.length, itemsPerPage]);
 
-  // Memoized event handlers
-  const handleStatusUpdate = useCallback(async (orderId, newStatus) => {
-    try {
-      await updateStatusMutation.mutateAsync({ id: orderId, status: newStatus });
-      toast.success('Order status updated');
-      setSelectedOrder(null); // Close modal after update
-    } catch (error) {
-      toast.error('Failed to update order status');
-    }
-  }, [updateStatusMutation]);
-
-  const handleDeleteOrder = useCallback(async (orderId) => {
-    if (window.confirm('Are you sure you want to delete this order? This action cannot be undone.')) {
-      try {
-        await deleteOrderMutation.mutateAsync(orderId);
-        toast.success('Order deleted successfully');
-        setSelectedOrder(null); // Close modal if open
-      } catch (error) {
-        toast.error('Failed to delete order');
-      }
-    }
-  }, [deleteOrderMutation]);
-
-  const handleCancelOrder = useCallback(async (orderId, reason) => {
-    try {
-      await cancelOrderMutation.mutateAsync({ id: orderId, reason });
-      toast.success('Order cancelled successfully');
-      setSelectedOrder(null); // Close modal after cancellation
-    } catch (error) {
-      toast.error('Failed to cancel order');
-    }
-  }, [cancelOrderMutation]);
-
-  const handlePaymentStatusUpdate = useCallback(async (orderId, paymentStatus) => {
-    try {
-      await updatePaymentStatusMutation.mutateAsync({ id: orderId, paymentStatus });
-      toast.success('Payment status updated successfully');
-    } catch (error) {
-      toast.error('Failed to update payment status');
-    }
-  }, [updatePaymentStatusMutation]);
-
-  const handleStripeRefund = useCallback(async (orderId, amount, reason) => {
-    try {
-      await orderService.createStripeRefund(orderId, amount, reason);
-      toast.success('Refund created successfully');
-      setSelectedOrder(null); // Close modal after refund
-    } catch (error) {
-      toast.error('Failed to create refund');
-    }
-  }, []);
+  // Handle view details - use the global modal context
+  const handleViewDetails = useCallback((order) => {
+    openOrderModalWithData(order);
+  }, [openOrderModalWithData]);
 
   // Memoized utility functions
   const formatDate = useCallback((dateString) => {
@@ -437,8 +393,7 @@ const Orders = () => {
                     paymentStatusIcons={paymentStatusIcons}
                     paymentStatusColors={paymentStatusColors}
                     formatDate={formatDate}
-                    onViewDetails={() => setSelectedOrder(order)}
-                    onDelete={handleDeleteOrder}
+                    onViewDetails={() => handleViewDetails(order)}
                   />
                 ))}
             </TableBody>
@@ -530,21 +485,6 @@ const Orders = () => {
         </div>
       )}
 
-      {/* Order Details Modal */}
-      {selectedOrder && (
-        <OrderViewModal
-          order={selectedOrder}
-          onClose={() => setSelectedOrder(null)}
-          onStatusUpdate={handleStatusUpdate}
-          onPaymentStatusUpdate={handlePaymentStatusUpdate}
-          onDelete={handleDeleteOrder}
-          onCancel={handleCancelOrder}
-          onStripeRefund={handleStripeRefund}
-          statusOptions={statusOptions}
-          paymentStatusIcons={paymentStatusIcons}
-          paymentStatusColors={paymentStatusColors}
-        />
-      )}
     </div>
   );
 };
@@ -557,8 +497,7 @@ const OrderTableRow = React.memo(({
   paymentStatusIcons,
   paymentStatusColors,
   formatDate, 
-  onViewDetails, 
-  onDelete 
+  onViewDetails
 }) => {
   const StatusIcon = statusIcons[order.status];
   const PaymentStatusIcon = paymentStatusIcons[order.payment?.status || 'pending'];
@@ -650,13 +589,6 @@ const OrderTableRow = React.memo(({
             title="View Details"
           >
             <Eye size={16} />
-          </button>
-          <button
-            onClick={() => onDelete(order._id)}
-            className="text-red-600 hover:text-red-800"
-            title="Delete Order"
-          >
-            <Trash2 size={16} />
           </button>
         </div>
       </TableCell>

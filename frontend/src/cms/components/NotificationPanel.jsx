@@ -1,16 +1,16 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Bell, Clock, ShoppingCart, X } from 'lucide-react';
 import realtimeService from '../services/realtimeService';
-import { useOrders } from '../hooks/useOrders';
+import { useOrderModal } from '../contexts/OrderModalContext';
 
-const NotificationPanel = ({ isOpen, onClose, onOrderClick }) => {
+const NotificationPanel = ({ isOpen, onClose }) => {
   const [pendingOrders, setPendingOrders] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const panelRef = useRef(null);
   const timeUpdateInterval = useRef(null);
 
-  // Get orders hook for opening the modal
-  const { data: ordersData } = useOrders({ status: 'pending', limit: 50 });
+  // Use the order modal context
+  const { openOrderModal } = useOrderModal();
 
   // Load initial pending orders
   useEffect(() => {
@@ -97,11 +97,13 @@ const NotificationPanel = ({ isOpen, onClose, onOrderClick }) => {
     };
   }, [isOpen, onClose]);
 
-  // Handle order click
+  // Handle order click - directly open modal
   const handleOrderClick = useCallback((order) => {
-    onOrderClick(order);
-    onClose();
-  }, [onOrderClick, onClose]);
+    if (order && order.orderId) {
+      openOrderModal(order.orderId);
+      onClose();
+    }
+  }, [openOrderModal, onClose]);
 
   // Format relative time
   const formatRelativeTime = (timestamp) => {
@@ -186,10 +188,10 @@ const NotificationPanel = ({ isOpen, onClose, onOrderClick }) => {
       {pendingOrders.length > 0 && (
         <div className="px-4 py-2 border-t border-gray-100">
           <button
-            onClick={() => onOrderClick(null)} // Open orders page
+            onClick={onClose} // Just close the panel, user can navigate to orders page from sidebar
             className="w-full text-center text-sm text-orange-600 hover:text-orange-700 font-medium"
           >
-            View all orders
+            Close
           </button>
         </div>
       )}

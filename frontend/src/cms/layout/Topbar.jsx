@@ -7,7 +7,7 @@ import soundManager from '../utils/soundUtils';
 import NotificationPanel from '../components/NotificationPanel';
 import toastNotificationService from '../components/OrderToast';
 
-const Topbar = ({ onProfileClick, onLogout, onOrderClick }) => {
+const Topbar = ({ onProfileClick, onLogout }) => {
   const [user, setUser] = useState(null);
   const [notifications, setNotifications] = useState({ ordersNew: 0, contactsNew: 0 });
   const [pendingOrdersCount, setPendingOrdersCount] = useState(0);
@@ -166,11 +166,6 @@ const Topbar = ({ onProfileClick, onLogout, onOrderClick }) => {
     onLogout();
   }, [onLogout]);
 
-  const handleNotificationOrderClick = useCallback((order) => {
-    if (onOrderClick) {
-      onOrderClick(order);
-    }
-  }, [onOrderClick]);
 
   return (
     <header className="bg-white border-b border-gray-200 px-6 py-4">
@@ -198,7 +193,6 @@ const Topbar = ({ onProfileClick, onLogout, onOrderClick }) => {
             <NotificationPanel
               isOpen={isNotificationPanelOpen}
               onClose={() => setIsNotificationPanelOpen(false)}
-              onOrderClick={handleNotificationOrderClick}
             />
           </div>
           

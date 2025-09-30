@@ -15,6 +15,7 @@ import Orders from './pages/Orders';
 import Contacts from './pages/Contacts';
 import Profile from './pages/Profile';
 import { authService } from './services/authService';
+import { OrderModalProvider } from './contexts/OrderModalContext';
 
 // Create a client
 const queryClient = new QueryClient({
@@ -47,49 +48,36 @@ const CMSAppContent = () => {
     navigate('profile');
   };
 
-  const handleOrderClick = (order) => {
-    if (order) {
-      // Navigate to orders page with order ID in URL state
-      navigate('orders', { 
-        state: { 
-          selectedOrderId: order.orderId,
-          selectedOrderData: order.orderData || order
-        } 
-      });
-    } else {
-      // Navigate to orders page without specific order
-      navigate('orders');
-    }
-  };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Toaster
-        position="top-right"
-        toastOptions={{
-          duration: 4000,
-          style: {
-            background: '#363636',
-            color: '#fff',
-          },
-          success: {
-            duration: 3000,
-            iconTheme: {
-              primary: '#10B981',
-              secondary: '#fff',
+    <OrderModalProvider>
+      <div className="min-h-screen bg-gray-50">
+        <Toaster
+          position="top-right"
+          toastOptions={{
+            duration: 4000,
+            style: {
+              background: '#363636',
+              color: '#fff',
             },
-          },
-          error: {
-            duration: 5000,
-            iconTheme: {
-              primary: '#EF4444',
-              secondary: '#fff',
+            success: {
+              duration: 3000,
+              iconTheme: {
+                primary: '#10B981',
+                secondary: '#fff',
+              },
             },
-          },
-        }}
-      />
-      
-      <Routes>
+            error: {
+              duration: 5000,
+              iconTheme: {
+                primary: '#EF4444',
+                secondary: '#fff',
+              },
+            },
+          }}
+        />
+        
+        <Routes>
         {/* Public Routes */}
         <Route path="login" element={<Login />} />
         
@@ -102,7 +90,6 @@ const CMSAppContent = () => {
                 <Topbar 
                   onProfileClick={handleProfileClick}
                   onLogout={handleLogout}
-                  onOrderClick={handleOrderClick}
                 />
                 <MainContent />
               </div>
@@ -121,7 +108,8 @@ const CMSAppContent = () => {
         {/* Catch all route */}
         <Route path="*" element={<Navigate to="dashboard" replace />} />
       </Routes>
-    </div>
+      </div>
+    </OrderModalProvider>
   );
 };
 
