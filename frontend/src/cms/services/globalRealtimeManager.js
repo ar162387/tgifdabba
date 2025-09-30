@@ -12,8 +12,10 @@ class GlobalRealtimeManager {
     this.connectionStatus = 'disconnected';
     this.connectionStatusCallbacks = new Set();
     
-    // Initialize immediately when the module loads
-    this.initialize();
+    // Only initialize if we're on a CMS route
+    if (typeof window !== 'undefined' && window.location.pathname.startsWith('/cms')) {
+      this.initialize();
+    }
   }
 
   initialize() {

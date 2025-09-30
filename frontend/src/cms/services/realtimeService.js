@@ -284,9 +284,9 @@ class RealtimeService {
     // Emit auth failure event
     this.emit('auth.failure', { message: 'Session expired, please login again' });
     
-    // Redirect to login page
-    if (window.location.pathname !== '/login') {
-      window.location.href = '/login';
+    // Redirect to login page (only if we're on a CMS route)
+    if (window.location.pathname.startsWith('/cms') && window.location.pathname !== '/cms/login') {
+      window.location.href = '/cms/login';
     }
   }
 
