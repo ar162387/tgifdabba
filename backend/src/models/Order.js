@@ -227,7 +227,7 @@ orderSchema.pre('save', function(next) {
     }, 0);
     
     // Calculate delivery fee (only for delivery orders)
-    this.pricing.deliveryFee = this.delivery.type === 'delivery' ? 3.0 : 0;
+    this.pricing.deliveryFee = this.delivery.type === 'delivery' ? 2.0 : 0;
     
     // Calculate total
     this.pricing.total = this.pricing.subtotal + this.pricing.deliveryFee;

@@ -99,7 +99,7 @@ const createOrder = async (req, res) => {
       return total + (item.price * item.quantity);
     }, 0);
     
-    const deliveryFee = delivery.type === 'delivery' ? 3.0 : 0;
+    const deliveryFee = delivery.type === 'delivery' ? 2.0 : 0;
     const total = subtotal + deliveryFee;
     
     // Determine payment method - use provided method or default based on delivery type
@@ -1033,7 +1033,7 @@ const createOrderWithPayment = async (req, res) => {
       return total + (item.price * item.quantity);
     }, 0);
     
-    const deliveryFee = delivery.type === 'delivery' ? 3.0 : 0;
+    const deliveryFee = delivery.type === 'delivery' ? 2.0 : 0;
     const total = subtotal + deliveryFee;
 
     // Verify payment intent with Stripe

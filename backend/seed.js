@@ -304,7 +304,7 @@ const seedData = async () => {
 
       // Calculate pricing
       const subtotal = selectedItems.reduce((total, item) => total + (item.price * item.quantity), 0);
-      const deliveryFee = deliveryType === 'delivery' ? 3.0 : 0;
+      const deliveryFee = deliveryType === 'delivery' ? 2.0 : 0;
       const total = subtotal + deliveryFee;
 
       // Random status
