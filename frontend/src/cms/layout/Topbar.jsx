@@ -3,6 +3,7 @@ import { Bell, User, LogOut, Settings, ChevronDown } from 'lucide-react';
 import { authService } from '../services/authService';
 import { notificationService } from '../services/notificationService';
 import realtimeService from '../services/realtimeService';
+import globalRealtimeManager from '../services/globalRealtimeManager';
 import soundManager from '../utils/soundUtils';
 import NotificationPanel from '../components/NotificationPanel';
 import toastNotificationService from '../components/OrderToast';
@@ -42,7 +43,7 @@ const Topbar = ({ onProfileClick, onLogout }) => {
 
   // Set up realtime listeners for pending orders
   useEffect(() => {
-    const unsubscribeOrderCreated = realtimeService.subscribe('order.created', (orderData) => {
+    const unsubscribeOrderCreated = globalRealtimeManager.subscribe('order.created', (orderData) => {
       setPendingOrdersCount(prev => {
         const newCount = prev + 1;
         console.log('Order created - updating count from', prev, 'to', newCount);
@@ -56,7 +57,7 @@ const Topbar = ({ onProfileClick, onLogout }) => {
       soundManager.playNotificationSound();
     });
 
-    const unsubscribeOrderUpdated = realtimeService.subscribe('order.updated', (orderData) => {
+    const unsubscribeOrderUpdated = globalRealtimeManager.subscribe('order.updated', (orderData) => {
       if (orderData.previousStatus === 'pending' && orderData.newStatus !== 'pending') {
         setPendingOrdersCount(prev => {
           const newCount = Math.max(0, prev - 1);
@@ -66,7 +67,7 @@ const Topbar = ({ onProfileClick, onLogout }) => {
       }
     });
 
-    const unsubscribePendingCount = realtimeService.subscribe('pending.count', (count) => {
+    const unsubscribePendingCount = globalRealtimeManager.subscribe('pending.count', (count) => {
       console.log('Received pending count update:', count);
       setPendingOrdersCount(prev => {
         // Only update if the count actually changed
@@ -79,7 +80,7 @@ const Topbar = ({ onProfileClick, onLogout }) => {
     });
 
     // Listen for connection established to refresh pending orders count
-    const unsubscribeConnectionEstablished = realtimeService.subscribe('connection.established', () => {
+    const unsubscribeConnectionEstablished = globalRealtimeManager.subscribe('connection.established', () => {
       console.log('Connection established, loading pending count...');
       // Only refresh if we don't have a recent count
       realtimeService.getPendingOrdersCount().then(count => {

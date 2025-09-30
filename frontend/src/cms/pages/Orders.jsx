@@ -1,12 +1,17 @@
-import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { Search, Eye, CheckCircle, Clock, XCircle, Truck, Package } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/Table';
+import { OptimizedTable, OptimizedTableHeader, OptimizedTableBody, OptimizedTableHead, OptimizedTableRow, OptimizedTableCell } from '../components/ui/OptimizedTable';
 import EmptyState from '../components/ui/EmptyState';
 import { TableSkeleton, FormSkeleton } from '../components/ui/Skeleton';
+import PerformanceMonitor from '../components/ui/PerformanceMonitor';
 import { useOrderModal } from '../contexts/OrderModalContext';
 import { useOrders } from '../hooks/useOrders';
+import realtimeService from '../services/realtimeService';
+import globalRealtimeManager from '../services/globalRealtimeManager';
+import { realtimeDebug } from '../utils/realtimeDebug';
 import toast from 'react-hot-toast';
 
 const Orders = () => {
@@ -20,6 +25,18 @@ const Orders = () => {
   const [filteredOrders, setFilteredOrders] = useState([]);
   const [allOrders, setAllOrders] = useState([]);
   const [selectedStatusCard, setSelectedStatusCard] = useState('');
+  const ordersMapRef = useRef(new Map()); // For efficient order lookups
+  const [realtimeConnectionStatus, setRealtimeConnectionStatus] = useState('disconnected');
+  const manualUpdatesRef = useRef(new Set()); // Track manual updates to prevent real-time conflicts
+  const processingEventsRef = useRef(new Set()); // Track processing events to prevent duplicates
+  
+  // Expose manualUpdatesRef globally so OrderModalContext can access it
+  useEffect(() => {
+    window.manualUpdatesRef = manualUpdatesRef;
+    return () => {
+      delete window.manualUpdatesRef;
+    };
+  }, []);
 
   // Use the global order modal context
   const { openOrderModalWithData } = useOrderModal();
@@ -135,10 +152,17 @@ const Orders = () => {
   // TanStack Query hooks - only one query needed since we do client-side filtering
   const { data: ordersData, isLoading, error } = useOrders(allOrdersQueryParams);
 
-  // Update allOrders when data changes (use ordersData for status cards and table)
+  // Update allOrders when data changes and build orders map for efficient lookups
   useEffect(() => {
     if (ordersData?.orders) {
       setAllOrders(ordersData.orders);
+      // Build orders map for O(1) lookups
+      const newOrdersMap = new Map();
+      ordersData.orders.forEach(order => {
+        newOrdersMap.set(order._id, order);
+        newOrdersMap.set(order.orderId, order); // Also index by orderId
+      });
+      ordersMapRef.current = newOrdersMap;
     }
   }, [ordersData?.orders]);
 
@@ -148,7 +172,8 @@ const Orders = () => {
     const selectedOrderData = location.state?.selectedOrderData;
     if (selectedOrderId && allOrders.length > 0) {
       // Find the full order data by orderId
-      const fullOrder = allOrders.find(order => order.orderId === selectedOrderId);
+      const fullOrder = ordersMapRef.current.get(selectedOrderId) || 
+                       allOrders.find(order => order.orderId === selectedOrderId);
       if (fullOrder) {
         openOrderModalWithData(fullOrder);
         // Clear the location state to prevent re-opening on page refresh
@@ -161,6 +186,213 @@ const Orders = () => {
       window.history.replaceState({}, document.title, window.location.pathname);
     }
   }, [location.state?.selectedOrderId, location.state?.selectedOrderData, allOrders, openOrderModalWithData]);
+
+  // Real-time updates integration with debouncing and deduplication
+  useEffect(() => {
+    // Unified event handler to prevent duplicate processing
+    const handleRealtimeEvent = (eventType, data, eventId) => {
+      // Prevent duplicate processing
+      if (processingEventsRef.current.has(eventId)) {
+        console.log(`Skipping duplicate event: ${eventType}`, eventId);
+        return;
+      }
+      
+      processingEventsRef.current.add(eventId);
+      
+      try {
+        realtimeDebug.log(eventType, data);
+        console.log(`Processing real-time event: ${eventType}`, data);
+        
+        if (eventType === 'order.created' && data.orderData) {
+          setAllOrders(prevOrders => {
+            // Check if order already exists to avoid duplicates
+            const exists = prevOrders.some(order => 
+              order._id === data.orderData._id || order.orderId === data.orderData.orderId
+            );
+            if (exists) return prevOrders;
+            
+            const newOrders = [data.orderData, ...prevOrders];
+            
+            // Update orders map
+            ordersMapRef.current.set(data.orderData._id, data.orderData);
+            ordersMapRef.current.set(data.orderData.orderId, data.orderData);
+            
+            return newOrders;
+          });
+          
+          toast.success(`New order received: ${data.orderId}`, {
+            duration: 3000,
+            position: 'top-right',
+            id: `order-created-${data.orderId}` // Prevent duplicate toasts
+          });
+        }
+        
+        else if (eventType === 'order.updated' && data.orderData) {
+          // Check if this is a manual update we're already handling
+          const manualUpdateKey = `${data.orderData.orderId}-${data.orderData.status}`;
+          const manualPaymentUpdateKey = `payment-${data.orderData.orderId}-${data.orderData.payment?.status}`;
+          
+          if (manualUpdatesRef.current.has(manualUpdateKey) || manualUpdatesRef.current.has(manualPaymentUpdateKey)) {
+            console.log(`Skipping real-time order.updated for manual update: ${manualUpdateKey} or ${manualPaymentUpdateKey}`);
+            return;
+          }
+          
+          setAllOrders(prevOrders => {
+            const orderIndex = prevOrders.findIndex(order => 
+              order._id === data.orderData._id || order.orderId === data.orderData.orderId
+            );
+            
+            if (orderIndex === -1) {
+              console.log(`Order not found for update: ${data.orderData.orderId}`);
+              return prevOrders;
+            }
+            
+            const currentOrder = prevOrders[orderIndex];
+            const newOrders = [...prevOrders];
+            newOrders[orderIndex] = data.orderData;
+            
+            // Update orders map
+            ordersMapRef.current.set(data.orderData._id, data.orderData);
+            ordersMapRef.current.set(data.orderData.orderId, data.orderData);
+            
+            console.log(`Real-time: Updated order ${data.orderData.orderId} with full data (status: ${data.orderData.status}, payment: ${data.orderData.payment?.status})`);
+            
+            return newOrders;
+          });
+        }
+        
+        else if (eventType === 'order.status_changed') {
+          // Check if this is a manual update we're already handling
+          const manualUpdateKey = `${data.orderId}-${data.newStatus}`;
+          if (manualUpdatesRef.current.has(manualUpdateKey)) {
+            console.log(`Skipping real-time update for manual update: ${manualUpdateKey}`);
+            return;
+          }
+          
+          setAllOrders(prevOrders => {
+            const orderIndex = prevOrders.findIndex(order => order.orderId === data.orderId);
+            
+            if (orderIndex === -1) {
+              console.log(`Order not found for status change: ${data.orderId}`);
+              return prevOrders;
+            }
+            
+            // Only update if the status is actually different
+            const currentOrder = prevOrders[orderIndex];
+            if (currentOrder.status === data.newStatus) {
+              console.log(`Status already ${data.newStatus} for order ${data.orderId}, skipping update`);
+              return prevOrders;
+            }
+            
+            const newOrders = [...prevOrders];
+            const updatedOrder = { ...newOrders[orderIndex], status: data.newStatus };
+            newOrders[orderIndex] = updatedOrder;
+            
+            // Update orders map
+            ordersMapRef.current.set(updatedOrder._id, updatedOrder);
+            ordersMapRef.current.set(updatedOrder.orderId, updatedOrder);
+            
+            console.log(`Real-time: Updated order ${data.orderId} status from ${currentOrder.status} to ${data.newStatus}`);
+            return newOrders;
+          });
+          
+          // Show toast for status changes (but not for manual updates)
+          toast.success(`Order status changed: ${data.orderId} → ${data.newStatus}`, {
+            duration: 2000,
+            position: 'top-right',
+            id: `order-status-${data.orderId}-${data.newStatus}` // Prevent duplicate toasts
+          });
+        }
+        
+      } catch (error) {
+        console.error(`Error processing ${eventType} event:`, error);
+      } finally {
+        // Remove from processing set after a delay
+        setTimeout(() => {
+          processingEventsRef.current.delete(eventId);
+        }, 1000);
+      }
+    };
+
+    // Subscribe to real-time order events using global manager
+    const unsubscribeOrderCreated = globalRealtimeManager.subscribe('order.created', (data) => {
+      const eventId = `created-${data.orderData?._id || data.orderId}-${Date.now()}`;
+      handleRealtimeEvent('order.created', data, eventId);
+    });
+
+    const unsubscribeOrderUpdated = globalRealtimeManager.subscribe('order.updated', (data) => {
+      const eventId = `updated-${data.orderData?._id || data.orderId}-${Date.now()}`;
+      handleRealtimeEvent('order.updated', data, eventId);
+    });
+
+    const unsubscribeOrderStatusChanged = globalRealtimeManager.subscribe('order.status_changed', (data) => {
+      const eventId = `status-${data.orderId}-${data.newStatus}-${Date.now()}`;
+      handleRealtimeEvent('order.status_changed', data, eventId);
+    });
+
+    const unsubscribeConnectionStatus = globalRealtimeManager.subscribeToConnectionStatus((status) => {
+      setRealtimeConnectionStatus(status.state);
+      realtimeDebug.logConnection(status);
+      console.log('Real-time connection status:', status);
+    });
+
+    // Listen for manual status update completion
+    const handleManualStatusUpdateComplete = (event) => {
+      const { orderId, newStatus } = event.detail;
+      console.log(`Manual status update completed for ${orderId}: ${newStatus}`);
+      
+      // Force a small delay to ensure backend has processed the update
+      setTimeout(() => {
+        // Trigger a re-fetch of the specific order or refresh the list
+        setAllOrders(prevOrders => {
+          const orderIndex = prevOrders.findIndex(order => order.orderId === orderId);
+          if (orderIndex !== -1) {
+            const newOrders = [...prevOrders];
+            // Mark the order as potentially updated - this will trigger a re-render
+            newOrders[orderIndex] = { ...newOrders[orderIndex], _lastUpdated: Date.now() };
+            console.log(`Forced update for order ${orderId} in table`);
+            return newOrders;
+          }
+          return prevOrders;
+        });
+      }, 500);
+    };
+
+    // Listen for manual payment status update completion
+    const handleManualPaymentStatusUpdateComplete = (event) => {
+      const { orderId, paymentStatus } = event.detail;
+      console.log(`Manual payment status update completed for ${orderId}: ${paymentStatus}`);
+      
+      // Force a small delay to ensure backend has processed the update
+      setTimeout(() => {
+        // Trigger a re-fetch of the specific order or refresh the list
+        setAllOrders(prevOrders => {
+          const orderIndex = prevOrders.findIndex(order => order.orderId === orderId);
+          if (orderIndex !== -1) {
+            const newOrders = [...prevOrders];
+            // Mark the order as potentially updated - this will trigger a re-render
+            newOrders[orderIndex] = { ...newOrders[orderIndex], _lastUpdated: Date.now() };
+            console.log(`Forced payment status update for order ${orderId} in table`);
+            return newOrders;
+          }
+          return prevOrders;
+        });
+      }, 500);
+    };
+
+    window.addEventListener('manualStatusUpdateComplete', handleManualStatusUpdateComplete);
+    window.addEventListener('manualPaymentStatusUpdateComplete', handleManualPaymentStatusUpdateComplete);
+
+    // Cleanup subscriptions on unmount
+    return () => {
+      unsubscribeOrderCreated();
+      unsubscribeOrderUpdated();
+      unsubscribeOrderStatusChanged();
+      unsubscribeConnectionStatus();
+      window.removeEventListener('manualStatusUpdateComplete', handleManualStatusUpdateComplete);
+      window.removeEventListener('manualPaymentStatusUpdateComplete', handleManualPaymentStatusUpdateComplete);
+    };
+  }, []);
 
   // Client-side filtering - no re-renders that affect input focus
   useEffect(() => {
@@ -190,6 +422,7 @@ const Orders = () => {
   // Memoized orders and pagination data
   const orders = useMemo(() => filteredOrders, [filteredOrders]);
   const totalPages = useMemo(() => Math.ceil(filteredOrders.length / itemsPerPage), [filteredOrders.length, itemsPerPage]);
+
 
   // Handle view details - use the global modal context
   const handleViewDetails = useCallback((order) => {
@@ -291,7 +524,27 @@ const Orders = () => {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-gray-900">Orders</h1>
+        <div className="flex items-center space-x-4">
+          <h1 className="text-2xl font-bold text-gray-900">Orders</h1>
+          {/* Real-time connection status */}
+          <div className="flex items-center space-x-2">
+            <div className={`w-2 h-2 rounded-full ${
+              realtimeConnectionStatus === 'connected' 
+                ? 'bg-green-500' 
+                : realtimeConnectionStatus === 'connecting'
+                ? 'bg-yellow-500 animate-pulse'
+                : 'bg-red-500'
+            }`}></div>
+            <span className="text-sm text-gray-600">
+              {realtimeConnectionStatus === 'connected' 
+                ? 'Live' 
+                : realtimeConnectionStatus === 'connecting'
+                ? 'Connecting...'
+                : 'Offline'
+              }
+            </span>
+          </div>
+        </div>
       </div>
 
       {/* Status Cards */}
@@ -365,40 +618,37 @@ const Orders = () => {
 
       {/* Table */}
       {orders.length > 0 ? (
-        <div className="bg-white rounded-lg shadow overflow-hidden">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Order ID</TableHead>
-                <TableHead>Customer</TableHead>
-                <TableHead>Delivery Type</TableHead>
-                <TableHead>Items</TableHead>
-                <TableHead>Total</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Payment Method</TableHead>
-                <TableHead>Payment</TableHead>
-                <TableHead>Date</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {orders
-                .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
-                .map((order) => (
-                  <OrderTableRow
-                    key={order._id}
-                    order={order}
-                    statusIcons={statusIcons}
-                    statusColors={statusColors}
-                    paymentStatusIcons={paymentStatusIcons}
-                    paymentStatusColors={paymentStatusColors}
-                    formatDate={formatDate}
-                    onViewDetails={() => handleViewDetails(order)}
-                  />
-                ))}
-            </TableBody>
-          </Table>
-        </div>
+        <OptimizedTable>
+          <OptimizedTableHeader>
+            <OptimizedTableHead>Order ID</OptimizedTableHead>
+            <OptimizedTableHead>Customer</OptimizedTableHead>
+            <OptimizedTableHead>Delivery Type</OptimizedTableHead>
+            <OptimizedTableHead>Items</OptimizedTableHead>
+            <OptimizedTableHead>Delivery Fee</OptimizedTableHead>
+            <OptimizedTableHead>Total</OptimizedTableHead>
+            <OptimizedTableHead>Status</OptimizedTableHead>
+            <OptimizedTableHead>Payment Method</OptimizedTableHead>
+            <OptimizedTableHead>Payment</OptimizedTableHead>
+            <OptimizedTableHead>Date</OptimizedTableHead>
+            <OptimizedTableHead>Actions</OptimizedTableHead>
+          </OptimizedTableHeader>
+          <OptimizedTableBody>
+            {orders
+              .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
+              .map((order) => (
+                <OptimizedOrderTableRow
+                  key={`${order._id}-${order.status}-${order.payment?.status || 'pending'}-${order._lastUpdated || order.updatedAt}`}
+                  order={order}
+                  statusIcons={statusIcons}
+                  statusColors={statusColors}
+                  paymentStatusIcons={paymentStatusIcons}
+                  paymentStatusColors={paymentStatusColors}
+                  formatDate={formatDate}
+                  onViewDetails={() => handleViewDetails(order)}
+                />
+              ))}
+          </OptimizedTableBody>
+        </OptimizedTable>
       ) : (
         <EmptyState
           type="orders"
@@ -485,11 +735,17 @@ const Orders = () => {
         </div>
       )}
 
+      {/* Performance Monitor - Only in development */}
+      <PerformanceMonitor 
+        orders={allOrders} 
+        realtimeConnectionStatus={realtimeConnectionStatus} 
+      />
+
     </div>
   );
 };
 
-// Memoized Order Table Row Component
+// Memoized Order Table Row Component with optimized re-rendering
 const OrderTableRow = React.memo(({ 
   order, 
   statusIcons, 
@@ -499,34 +755,55 @@ const OrderTableRow = React.memo(({
   formatDate, 
   onViewDetails
 }) => {
-  const StatusIcon = statusIcons[order.status];
-  const PaymentStatusIcon = paymentStatusIcons[order.payment?.status || 'pending'];
+  // Memoize icon components to prevent unnecessary re-renders
+  const StatusIcon = useMemo(() => statusIcons[order.status], [statusIcons, order.status]);
+  const PaymentStatusIcon = useMemo(() => paymentStatusIcons[order.payment?.status || 'pending'], [paymentStatusIcons, order.payment?.status]);
   
-  const formatDeliveryType = (type) => {
-    return type === 'delivery' ? 'Delivery' : 'Collection';
-  };
+  // Memoize formatted values
+  const deliveryType = useMemo(() => 
+    order.delivery.type === 'delivery' ? 'Delivery' : 'Collection', 
+    [order.delivery.type]
+  );
 
-  const formatStatus = (status) => {
-    return status.split('_').map(word => 
+  const formattedStatus = useMemo(() => 
+    order.status.split('_').map(word => 
       word.charAt(0).toUpperCase() + word.slice(1)
-    ).join(' ');
-  };
+    ).join(' '), 
+    [order.status]
+  );
 
-  const formatPaymentStatus = (status) => {
-    return status.charAt(0).toUpperCase() + status.slice(1);
-  };
+  const formattedPaymentStatus = useMemo(() => 
+    (order.payment?.status || 'pending').charAt(0).toUpperCase() + (order.payment?.status || 'pending').slice(1),
+    [order.payment?.status]
+  );
 
-  const formatPaymentMethod = (method) => {
+  const paymentMethod = useMemo(() => {
     const methodMap = {
       cash_on_delivery: 'COD',
       cash_on_collection: 'COC',
       stripe: 'Card'
     };
-    return methodMap[method] || method;
-  };
+    return methodMap[order.payment?.method] || order.payment?.method;
+  }, [order.payment?.method]);
+
+  const formattedDate = useMemo(() => formatDate(order.createdAt), [formatDate, order.createdAt]);
+  
+  const deliveryFeeDisplay = useMemo(() => {
+    if (order.delivery.type === 'delivery') {
+      return order.pricing.deliveryFee === 0 ? (
+        <span className="text-sm font-medium text-green-600">FREE</span>
+      ) : (
+        <span className="text-sm font-medium">£{order.pricing.deliveryFee.toFixed(2)}</span>
+      );
+    }
+    return <span className="text-sm text-gray-500">N/A</span>;
+  }, [order.delivery.type, order.pricing.deliveryFee]);
+
+  const totalAmount = useMemo(() => `£${order.pricing.total.toFixed(2)}`, [order.pricing.total]);
+  const itemsCount = useMemo(() => `${order.items.length} item${order.items.length !== 1 ? 's' : ''}`, [order.items.length]);
   
   return (
-    <TableRow>
+    <TableRow key={`${order._id}-${order.status}-${order.payment?.status}`}>
       <TableCell className="font-medium">
         {order.orderId}
       </TableCell>
@@ -542,22 +819,25 @@ const OrderTableRow = React.memo(({
             ? 'bg-blue-100 text-blue-800' 
             : 'bg-green-100 text-green-800'
         }`}>
-          {formatDeliveryType(order.delivery.type)}
+          {deliveryType}
         </span>
       </TableCell>
       <TableCell>
         <div className="text-sm">
-          {order.items.length} item{order.items.length !== 1 ? 's' : ''}
+          {itemsCount}
         </div>
       </TableCell>
+      <TableCell>
+        {deliveryFeeDisplay}
+      </TableCell>
       <TableCell className="font-medium">
-        £{order.pricing.total.toFixed(2)}
+        {totalAmount}
       </TableCell>
       <TableCell>
         <div className="flex items-center space-x-2">
           <StatusIcon size={16} />
           <span className={`px-2 py-1 rounded-full text-sm font-medium ${statusColors[order.status]}`}>
-            {formatStatus(order.status)}
+            {formattedStatus}
           </span>
         </div>
       </TableCell>
@@ -567,19 +847,19 @@ const OrderTableRow = React.memo(({
             ? 'bg-blue-100 text-blue-800' 
             : 'bg-green-100 text-green-800'
         }`}>
-          {formatPaymentMethod(order.payment?.method)}
+          {paymentMethod}
         </span>
       </TableCell>
       <TableCell>
         <div className="flex items-center space-x-2">
           <PaymentStatusIcon size={16} />
           <span className={`px-2 py-1 rounded-full text-sm font-medium ${paymentStatusColors[order.payment?.status || 'pending']}`}>
-            {formatPaymentStatus(order.payment?.status || 'pending')}
+            {formattedPaymentStatus}
           </span>
         </div>
       </TableCell>
       <TableCell className="text-sm text-gray-600">
-        {formatDate(order.createdAt)}
+        {formattedDate}
       </TableCell>
       <TableCell>
         <div className="flex space-x-2">
@@ -593,6 +873,173 @@ const OrderTableRow = React.memo(({
         </div>
       </TableCell>
     </TableRow>
+  );
+}, (prevProps, nextProps) => {
+  // Custom comparison function for React.memo
+  // Only re-render if critical properties have changed
+  return (
+    prevProps.order._id === nextProps.order._id &&
+    prevProps.order.status === nextProps.order.status &&
+    prevProps.order.payment?.status === nextProps.order.payment?.status &&
+    prevProps.order.pricing.total === nextProps.order.pricing.total &&
+    prevProps.order.pricing.deliveryFee === nextProps.order.pricing.deliveryFee &&
+    prevProps.order.createdAt === nextProps.order.createdAt &&
+    prevProps.order.customer.email === nextProps.order.customer.email &&
+    prevProps.order.customer.phoneNumber === nextProps.order.customer.phoneNumber &&
+    prevProps.order.delivery.type === nextProps.order.delivery.type &&
+    prevProps.order.items.length === nextProps.order.items.length &&
+    prevProps.order.payment?.method === nextProps.order.payment?.method
+  );
+});
+
+// Optimized Order Table Row Component using OptimizedTableRow
+const OptimizedOrderTableRow = React.memo(({ 
+  order, 
+  statusIcons, 
+  statusColors, 
+  paymentStatusIcons,
+  paymentStatusColors,
+  formatDate, 
+  onViewDetails
+}) => {
+  // Memoize icon components to prevent unnecessary re-renders
+  const StatusIcon = useMemo(() => statusIcons[order.status], [statusIcons, order.status]);
+  const PaymentStatusIcon = useMemo(() => paymentStatusIcons[order.payment?.status || 'pending'], [paymentStatusIcons, order.payment?.status]);
+  
+  // Memoize formatted values
+  const deliveryType = useMemo(() => 
+    order.delivery.type === 'delivery' ? 'Delivery' : 'Collection', 
+    [order.delivery.type]
+  );
+
+  const formattedStatus = useMemo(() => 
+    order.status.split('_').map(word => 
+      word.charAt(0).toUpperCase() + word.slice(1)
+    ).join(' '), 
+    [order.status]
+  );
+
+  const formattedPaymentStatus = useMemo(() => 
+    (order.payment?.status || 'pending').charAt(0).toUpperCase() + (order.payment?.status || 'pending').slice(1),
+    [order.payment?.status]
+  );
+
+  const paymentMethod = useMemo(() => {
+    const methodMap = {
+      cash_on_delivery: 'COD',
+      cash_on_collection: 'COC',
+      stripe: 'Card'
+    };
+    return methodMap[order.payment?.method] || order.payment?.method;
+  }, [order.payment?.method]);
+
+  const formattedDate = useMemo(() => formatDate(order.createdAt), [formatDate, order.createdAt]);
+  
+  const deliveryFeeDisplay = useMemo(() => {
+    if (order.delivery.type === 'delivery') {
+      return order.pricing.deliveryFee === 0 ? (
+        <span className="text-sm font-medium text-green-600">FREE</span>
+      ) : (
+        <span className="text-sm font-medium">£{order.pricing.deliveryFee.toFixed(2)}</span>
+      );
+    }
+    return <span className="text-sm text-gray-500">N/A</span>;
+  }, [order.delivery.type, order.pricing.deliveryFee]);
+
+  const totalAmount = useMemo(() => `£${order.pricing.total.toFixed(2)}`, [order.pricing.total]);
+  const itemsCount = useMemo(() => `${order.items.length} item${order.items.length !== 1 ? 's' : ''}`, [order.items.length]);
+  
+  return (
+    <OptimizedTableRow 
+      orderId={order._id}
+      status={order.status}
+      paymentStatus={order.payment?.status || 'pending'}
+    >
+      <OptimizedTableCell className="font-medium">
+        {order.orderId}
+      </OptimizedTableCell>
+      <OptimizedTableCell>
+        <div>
+          <div className="font-medium">{order.customer.email}</div>
+          <div className="text-sm text-gray-500">{order.customer.phoneNumber}</div>
+        </div>
+      </OptimizedTableCell>
+      <OptimizedTableCell>
+        <span className={`px-2 py-1 rounded-full text-sm font-medium ${
+          order.delivery.type === 'delivery' 
+            ? 'bg-blue-100 text-blue-800' 
+            : 'bg-green-100 text-green-800'
+        }`}>
+          {deliveryType}
+        </span>
+      </OptimizedTableCell>
+      <OptimizedTableCell>
+        <div className="text-sm">
+          {itemsCount}
+        </div>
+      </OptimizedTableCell>
+      <OptimizedTableCell>
+        {deliveryFeeDisplay}
+      </OptimizedTableCell>
+      <OptimizedTableCell className="font-medium">
+        {totalAmount}
+      </OptimizedTableCell>
+      <OptimizedTableCell>
+        <div className="flex items-center space-x-2">
+          <StatusIcon size={16} />
+          <span className={`px-2 py-1 rounded-full text-sm font-medium ${statusColors[order.status]}`}>
+            {formattedStatus}
+          </span>
+        </div>
+      </OptimizedTableCell>
+      <OptimizedTableCell>
+        <span className={`px-2 py-1 rounded-full text-sm font-medium ${
+          order.payment?.method === 'cash_on_delivery' 
+            ? 'bg-blue-100 text-blue-800' 
+            : 'bg-green-100 text-green-800'
+        }`}>
+          {paymentMethod}
+        </span>
+      </OptimizedTableCell>
+      <OptimizedTableCell>
+        <div className="flex items-center space-x-2">
+          <PaymentStatusIcon size={16} />
+          <span className={`px-2 py-1 rounded-full text-sm font-medium ${paymentStatusColors[order.payment?.status || 'pending']}`}>
+            {formattedPaymentStatus}
+          </span>
+        </div>
+      </OptimizedTableCell>
+      <OptimizedTableCell className="text-sm text-gray-600">
+        {formattedDate}
+      </OptimizedTableCell>
+      <OptimizedTableCell>
+        <div className="flex space-x-2">
+          <button
+            onClick={onViewDetails}
+            className="text-blue-600 hover:text-blue-800"
+            title="View Details"
+          >
+            <Eye size={16} />
+          </button>
+        </div>
+      </OptimizedTableCell>
+    </OptimizedTableRow>
+  );
+}, (prevProps, nextProps) => {
+  // Custom comparison function for React.memo
+  // Only re-render if critical properties have changed
+  return (
+    prevProps.order._id === nextProps.order._id &&
+    prevProps.order.status === nextProps.order.status &&
+    prevProps.order.payment?.status === nextProps.order.payment?.status &&
+    prevProps.order.pricing.total === nextProps.order.pricing.total &&
+    prevProps.order.pricing.deliveryFee === nextProps.order.pricing.deliveryFee &&
+    prevProps.order.createdAt === nextProps.order.createdAt &&
+    prevProps.order.customer.email === nextProps.order.customer.email &&
+    prevProps.order.customer.phoneNumber === nextProps.order.customer.phoneNumber &&
+    prevProps.order.delivery.type === nextProps.order.delivery.type &&
+    prevProps.order.items.length === nextProps.order.items.length &&
+    prevProps.order.payment?.method === nextProps.order.payment?.method
   );
 });
 

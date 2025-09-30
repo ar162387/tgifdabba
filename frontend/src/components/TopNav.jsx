@@ -186,7 +186,7 @@ const TopNav = () => {
                 Orders are currently disabled. Please try again later.
               </p>
               <p className="text-sm text-gray-500 mb-6">
-                Ordering will resume at 2:00 PM (UK time)
+                Ordering will resume at 2:00 PM 
               </p>
               <button
                 onClick={() => setShowOrderingDisabledModal(false)}

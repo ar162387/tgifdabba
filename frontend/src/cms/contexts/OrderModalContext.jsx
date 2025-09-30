@@ -73,28 +73,118 @@ export const OrderModalProvider = ({ children }) => {
 
   const handleStatusUpdate = useCallback(async (orderId, newStatus) => {
     try {
-      await orderService.updateOrderStatus(orderId, { status: newStatus });
-      toast.success('Order status updated');
+      // Prevent duplicate requests by checking if we're already updating this order
+      const updateKey = `${orderId}-${newStatus}`;
+      if (window.statusUpdateInProgress?.has(updateKey)) {
+        console.log('Status update already in progress, skipping...');
+        return;
+      }
       
-      // Update the order in state
+      // Initialize the set if it doesn't exist
+      if (!window.statusUpdateInProgress) {
+        window.statusUpdateInProgress = new Set();
+      }
+      
+      // Mark this update as in progress
+      window.statusUpdateInProgress.add(updateKey);
+      
+      // Track manual update to prevent real-time conflicts
+      if (window.manualUpdatesRef) {
+        window.manualUpdatesRef.current.add(updateKey);
+      }
+      
+      console.log('Updating order status:', { orderId, newStatus });
+      const response = await orderService.updateOrderStatus(orderId, { status: newStatus });
+      
+      // Update the order in state immediately for better UX
       setSelectedOrder(prev => prev ? { ...prev, status: newStatus } : null);
+      
+      // Clear manual update tracking immediately after successful API call
+      if (window.manualUpdatesRef) {
+        window.manualUpdatesRef.current.delete(updateKey);
+      }
+      
+      // Emit a custom event to notify Orders component that manual update is complete
+      window.dispatchEvent(new CustomEvent('manualStatusUpdateComplete', {
+        detail: { orderId, newStatus }
+      }));
+      
+      console.log('Manual update completed, real-time updates can proceed');
+      
+      // Don't show toast here - realtime will handle it with order ID
+      
     } catch (error) {
-      toast.error('Failed to update order status');
+      console.error('Status update error:', error);
+      toast.error(`Failed to update order status: ${error.response?.data?.message || error.message}`, {
+        id: `status-error-${orderId}`
+      });
+    } finally {
+      // Remove from in-progress set after a delay
+      setTimeout(() => {
+        if (window.statusUpdateInProgress) {
+          window.statusUpdateInProgress.delete(`${orderId}-${newStatus}`);
+        }
+      }, 2000);
     }
   }, []);
 
   const handlePaymentStatusUpdate = useCallback(async (orderId, paymentStatus) => {
     try {
-      await orderService.updatePaymentStatus(orderId, { paymentStatus });
-      toast.success('Payment status updated successfully');
+      // Prevent duplicate requests by checking if we're already updating this order
+      const updateKey = `payment-${orderId}-${paymentStatus}`;
+      if (window.statusUpdateInProgress?.has(updateKey)) {
+        console.log('Payment status update already in progress, skipping...');
+        return;
+      }
       
-      // Update the order in state
+      // Initialize the set if it doesn't exist
+      if (!window.statusUpdateInProgress) {
+        window.statusUpdateInProgress = new Set();
+      }
+      
+      // Mark this update as in progress
+      window.statusUpdateInProgress.add(updateKey);
+      
+      // Track manual update to prevent real-time conflicts
+      if (window.manualUpdatesRef) {
+        window.manualUpdatesRef.current.add(updateKey);
+      }
+      
+      console.log('Updating payment status:', { orderId, paymentStatus });
+      await orderService.updatePaymentStatus(orderId, paymentStatus);
+      
+      // Update the order in state immediately for better UX
       setSelectedOrder(prev => prev ? { 
         ...prev, 
         payment: { ...prev.payment, status: paymentStatus }
       } : null);
+      
+      // Clear manual update tracking immediately after successful API call
+      if (window.manualUpdatesRef) {
+        window.manualUpdatesRef.current.delete(updateKey);
+      }
+      
+      // Emit a custom event to notify Orders component that manual update is complete
+      window.dispatchEvent(new CustomEvent('manualPaymentStatusUpdateComplete', {
+        detail: { orderId, paymentStatus }
+      }));
+      
+      console.log('Manual payment status update completed, real-time updates can proceed');
+      
+      // Don't show toast here - realtime will handle it with order ID
+      
     } catch (error) {
-      toast.error('Failed to update payment status');
+      console.error('Payment status update error:', error);
+      toast.error(`Failed to update payment status: ${error.response?.data?.message || error.message}`, {
+        id: `payment-status-error-${orderId}`
+      });
+    } finally {
+      // Remove from in-progress set after a delay
+      setTimeout(() => {
+        if (window.statusUpdateInProgress) {
+          window.statusUpdateInProgress.delete(`payment-${orderId}-${paymentStatus}`);
+        }
+      }, 2000);
     }
   }, []);
 
@@ -102,7 +192,7 @@ export const OrderModalProvider = ({ children }) => {
     if (window.confirm('Are you sure you want to delete this order? This action cannot be undone.')) {
       try {
         await orderService.deleteOrder(orderId);
-        toast.success('Order deleted successfully');
+        // Don't show toast here - parent component will handle it
         setSelectedOrder(null); // Close modal if open
       } catch (error) {
         toast.error('Failed to delete order');
@@ -113,7 +203,7 @@ export const OrderModalProvider = ({ children }) => {
   const handleCancelOrder = useCallback(async (orderId, reason) => {
     try {
       await orderService.cancelOrder(orderId, reason);
-      toast.success('Order cancelled successfully');
+      // Don't show toast here - realtime will handle it with order ID
       
       // Update the order in state
       setSelectedOrder(prev => prev ? { ...prev, status: 'cancelled' } : null);
@@ -125,7 +215,7 @@ export const OrderModalProvider = ({ children }) => {
   const handleStripeRefund = useCallback(async (orderId, amount, reason) => {
     try {
       await orderService.createStripeRefund(orderId, amount, reason);
-      toast.success('Refund created successfully');
+      // Don't show toast here - parent component will handle it
       setSelectedOrder(null); // Close modal after refund
     } catch (error) {
       toast.error('Failed to create refund');

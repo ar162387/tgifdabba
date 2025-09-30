@@ -17,14 +17,15 @@ const Checkout = () => {
     specialRequests,
     postcode,
     deliveryInfo,
+    deliveryFee,
     addToCart,
     removeFromCart,
     clearCart,
     setDeliveryInfo,
     getCartTotal,
-    getDeliveryFee,
     getFinalTotal
   } = useBasket();
+
 
   // Initialize form data from localStorage or default values
   const [email, setEmail] = useState(() => {
@@ -48,6 +49,7 @@ const Checkout = () => {
   });
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
   const [orderError, setOrderError] = useState(null);
+  const [fieldErrors, setFieldErrors] = useState({});
   const [paymentMethod, setPaymentMethod] = useState(() => {
     return localStorage.getItem('checkout_paymentMethod') || PAYMENT_METHODS.CASH_ON_DELIVERY;
   });
@@ -151,6 +153,7 @@ const Checkout = () => {
     
     setIsPlacingOrder(true);
     setOrderError(null);
+    setFieldErrors({});
     
     try {
       // Prepare order data
@@ -170,8 +173,9 @@ const Checkout = () => {
         })),
         specialRequests: specialRequests?.trim() || null,
         paymentMethod: paymentMethod,
-        deliveryFee: getDeliveryFee() // Send calculated delivery fee to backend
+        deliveryFee: deliveryFee // Send stored delivery fee to backend
       };
+
 
       // For Stripe payments, create payment intent first
       if (paymentMethod === PAYMENT_METHODS.STRIPE) {
@@ -208,7 +212,25 @@ const Checkout = () => {
       }
     } catch (error) {
       console.error('Error placing order:', error);
-      setOrderError(error.message || 'Failed to place order. Please try again.');
+      
+      // Handle validation errors with specific field messages
+      if (error.response?.data?.validationErrors) {
+        const fieldErrors = {};
+        error.response.data.validationErrors.forEach(err => {
+          // Map backend field paths to frontend field names
+          let fieldName = err.path;
+          if (err.path === 'customer.email') fieldName = 'email';
+          if (err.path === 'customer.phoneNumber') fieldName = 'phoneNumber';
+          if (err.path === 'delivery.address') fieldName = 'deliveryAddress';
+          if (err.path === 'delivery.postcode') fieldName = 'postcode';
+          
+          fieldErrors[fieldName] = err.msg;
+        });
+        setFieldErrors(fieldErrors);
+        setOrderError('Please fix the validation errors below.');
+      } else {
+        setOrderError(error.message || 'Failed to place order. Please try again.');
+      }
     } finally {
       setIsPlacingOrder(false);
     }
@@ -239,7 +261,7 @@ const Checkout = () => {
           })),
           specialRequests: specialRequests?.trim() || null,
           paymentMethod: PAYMENT_METHODS.STRIPE,
-          deliveryFee: getDeliveryFee() // Send calculated delivery fee to backend
+          deliveryFee: deliveryFee // Send stored delivery fee to backend
         };
 
         // Create order with successful payment using the pre-generated order ID
@@ -267,7 +289,25 @@ const Checkout = () => {
       }
     } catch (error) {
       console.error('Error processing payment success:', error);
-      setOrderError(error.message || 'Payment processing failed. Please contact support.');
+      
+      // Handle validation errors with specific field messages
+      if (error.response?.data?.validationErrors) {
+        const fieldErrors = {};
+        error.response.data.validationErrors.forEach(err => {
+          // Map backend field paths to frontend field names
+          let fieldName = err.path;
+          if (err.path === 'customer.email') fieldName = 'email';
+          if (err.path === 'customer.phoneNumber') fieldName = 'phoneNumber';
+          if (err.path === 'delivery.address') fieldName = 'deliveryAddress';
+          if (err.path === 'delivery.postcode') fieldName = 'postcode';
+          
+          fieldErrors[fieldName] = err.msg;
+        });
+        setFieldErrors(fieldErrors);
+        setOrderError('Please fix the validation errors below.');
+      } else {
+        setOrderError(error.message || 'Payment processing failed. Please contact support.');
+      }
     } finally {
       setIsProcessingPayment(false);
     }
@@ -344,10 +384,23 @@ const Checkout = () => {
                 <input
                   type="email"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    // Clear field error when user starts typing
+                    if (fieldErrors.email) {
+                      setFieldErrors(prev => ({ ...prev, email: null }));
+                    }
+                  }}
                   placeholder="Enter your email address"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-orange focus:border-transparent text-lg"
+                  className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:border-transparent text-lg ${
+                    fieldErrors.email 
+                      ? 'border-red-500 focus:ring-red-500' 
+                      : 'border-gray-300 focus:ring-primary-orange'
+                  }`}
                 />
+                {fieldErrors.email && (
+                  <p className="text-red-600 text-sm mt-1">{fieldErrors.email}</p>
+                )}
                 <p className="text-sm text-gray-600">
                   You'll receive receipts and notifications at this email.
                 </p>
@@ -393,11 +446,24 @@ const Checkout = () => {
                           </label>
                           <textarea
                             value={deliveryAddress}
-                            onChange={(e) => setDeliveryAddress(e.target.value)}
+                            onChange={(e) => {
+                              setDeliveryAddress(e.target.value);
+                              // Clear field error when user starts typing
+                              if (fieldErrors.deliveryAddress) {
+                                setFieldErrors(prev => ({ ...prev, deliveryAddress: null }));
+                              }
+                            }}
                             placeholder="Enter your delivery address"
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-orange focus:border-transparent"
+                            className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:border-transparent ${
+                              fieldErrors.deliveryAddress 
+                                ? 'border-red-500 focus:ring-red-500' 
+                                : 'border-gray-300 focus:ring-primary-orange'
+                            }`}
                             rows="3"
                           />
+                          {fieldErrors.deliveryAddress && (
+                            <p className="text-red-600 text-sm mt-1">{fieldErrors.deliveryAddress}</p>
+                          )}
                           {!postcode && (
                             <div className="mt-2 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
                               <p className="text-sm text-yellow-700">
@@ -419,6 +485,10 @@ const Checkout = () => {
                               onChange={(value) => {
                                 setCheckoutPostcode(value);
                                 setPostcode(value); // Sync with basket
+                                // Clear field error when user starts typing
+                                if (fieldErrors.postcode) {
+                                  setFieldErrors(prev => ({ ...prev, postcode: null }));
+                                }
                               }}
                               onSelect={(suggestion) => {
                                 // Save the selected address in basket store
@@ -430,10 +500,19 @@ const Checkout = () => {
                                   coordinates: { lat: suggestion.lat, lon: suggestion.lon },
                                   displayName: suggestion.displayName
                                 });
+                                // Clear field error when user selects
+                                if (fieldErrors.postcode) {
+                                  setFieldErrors(prev => ({ ...prev, postcode: null }));
+                                }
                               }}
                               placeholder="BR6 0AB"
-                              className="w-full"
+                              className={`w-full ${
+                                fieldErrors.postcode ? 'border-red-500' : ''
+                              }`}
                             />
+                            {fieldErrors.postcode && (
+                              <p className="text-red-600 text-sm mt-1">{fieldErrors.postcode}</p>
+                            )}
                           </div>
                           <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -442,10 +521,23 @@ const Checkout = () => {
                             <input
                               type="tel"
                               value={phoneNumber}
-                              onChange={(e) => setPhoneNumber(e.target.value)}
+                              onChange={(e) => {
+                                setPhoneNumber(e.target.value);
+                                // Clear field error when user starts typing
+                                if (fieldErrors.phoneNumber) {
+                                  setFieldErrors(prev => ({ ...prev, phoneNumber: null }));
+                                }
+                              }}
                               placeholder="07123 456789"
-                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-orange focus:border-transparent"
+                              className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:border-transparent ${
+                                fieldErrors.phoneNumber 
+                                  ? 'border-red-500 focus:ring-red-500' 
+                                  : 'border-gray-300 focus:ring-primary-orange'
+                              }`}
                             />
+                            {fieldErrors.phoneNumber && (
+                              <p className="text-red-600 text-sm mt-1">{fieldErrors.phoneNumber}</p>
+                            )}
                           </div>
                         </div>
                       )}
@@ -458,10 +550,23 @@ const Checkout = () => {
                           <input
                             type="tel"
                             value={phoneNumber}
-                            onChange={(e) => setPhoneNumber(e.target.value)}
+                            onChange={(e) => {
+                              setPhoneNumber(e.target.value);
+                              // Clear field error when user starts typing
+                              if (fieldErrors.phoneNumber) {
+                                setFieldErrors(prev => ({ ...prev, phoneNumber: null }));
+                              }
+                            }}
                             placeholder="07123 456789"
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-orange focus:border-transparent"
+                            className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:border-transparent ${
+                              fieldErrors.phoneNumber 
+                                ? 'border-red-500 focus:ring-red-500' 
+                                : 'border-gray-300 focus:ring-primary-orange'
+                            }`}
                           />
+                          {fieldErrors.phoneNumber && (
+                            <p className="text-red-600 text-sm mt-1">{fieldErrors.phoneNumber}</p>
+                          )}
                         </div>
                       )}
                       {specialRequests && (
@@ -720,13 +825,13 @@ const Checkout = () => {
                   <span className="text-gray-600">Subtotal</span>
                   <span>£{getCartTotal().toFixed(2)}</span>
                 </div>
-                {getDeliveryFee() > 0 && (
+                {deliveryFee > 0 && (
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-600">Delivery</span>
-                    <span>£{getDeliveryFee().toFixed(2)}</span>
+                    <span>£{deliveryFee.toFixed(2)}</span>
                   </div>
                 )}
-                {getDeliveryFee() === 0 && deliveryOption === 'delivery' && (
+                {deliveryFee === 0 && deliveryOption === 'delivery' && (
                   <div className="flex justify-between text-sm">
                     <span className="text-green-600 font-medium">Delivery</span>
                     <span className="text-green-600 font-medium">FREE</span>

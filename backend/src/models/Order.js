@@ -226,8 +226,10 @@ orderSchema.pre('save', function(next) {
       return total + (item.price * item.quantity);
     }, 0);
     
-    // Calculate delivery fee (only for delivery orders)
-    this.pricing.deliveryFee = this.delivery.type === 'delivery' ? 2.0 : 0;
+    // Only set delivery fee if not already set (preserve frontend-calculated fee)
+    if (this.pricing.deliveryFee === undefined || this.pricing.deliveryFee === null) {
+      this.pricing.deliveryFee = this.delivery.type === 'delivery' ? 2.0 : 0;
+    }
     
     // Calculate total
     this.pricing.total = this.pricing.subtotal + this.pricing.deliveryFee;

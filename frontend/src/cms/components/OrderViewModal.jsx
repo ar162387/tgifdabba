@@ -24,10 +24,20 @@ const OrderViewModal = ({
   const [refundAmount, setRefundAmount] = useState('');
   const [refundReason, setRefundReason] = useState('requested_by_customer');
   const [customRefundReason, setCustomRefundReason] = useState('');
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  const [isUpdatingPayment, setIsUpdatingPayment] = useState(false);
+  const [isCancelling, setIsCancelling] = useState(false);
+  const [isRefunding, setIsRefunding] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const handleStatusChange = async () => {
     if (newStatus !== order.status) {
-      await onStatusUpdate(order._id, newStatus);
+      setIsUpdatingStatus(true);
+      try {
+        await onStatusUpdate(order._id, newStatus);
+      } finally {
+        setIsUpdatingStatus(false);
+      }
     } else {
       onClose();
     }
@@ -35,7 +45,12 @@ const OrderViewModal = ({
 
   const handlePaymentStatusChange = async () => {
     if (newPaymentStatus !== (order.payment?.status || 'pending')) {
-      await onPaymentStatusUpdate(order._id, newPaymentStatus);
+      setIsUpdatingPayment(true);
+      try {
+        await onPaymentStatusUpdate(order._id, newPaymentStatus);
+      } finally {
+        setIsUpdatingPayment(false);
+      }
     }
   };
 
@@ -44,8 +59,13 @@ const OrderViewModal = ({
       toast.error('Please provide a reason for cancellation');
       return;
     }
-    await onCancel(order._id, cancelReason);
-    setShowCancelForm(false);
+    setIsCancelling(true);
+    try {
+      await onCancel(order._id, cancelReason);
+      setShowCancelForm(false);
+    } finally {
+      setIsCancelling(false);
+    }
   };
 
   const handleRefundOrder = async () => {
@@ -61,11 +81,16 @@ const OrderViewModal = ({
       customReason: customRefundReason.trim()
     };
     
-    await onStripeRefund(order._id, amount, refundData);
-    setShowRefundForm(false);
-    setRefundAmount('');
-    setRefundReason('requested_by_customer');
-    setCustomRefundReason('');
+    setIsRefunding(true);
+    try {
+      await onStripeRefund(order._id, amount, refundData);
+      setShowRefundForm(false);
+      setRefundAmount('');
+      setRefundReason('requested_by_customer');
+      setCustomRefundReason('');
+    } finally {
+      setIsRefunding(false);
+    }
   };
 
   const formatDeliveryType = (type) => {
@@ -84,6 +109,7 @@ const OrderViewModal = ({
   const formatPaymentStatus = (status) => {
     return status.charAt(0).toUpperCase() + status.slice(1);
   };
+
 
   const PaymentStatusIcon = paymentStatusIcons[order.payment?.status || 'pending'];
 
@@ -116,6 +142,7 @@ const OrderViewModal = ({
                 variant="destructive"
                 size="sm"
                 onClick={() => setShowCancelForm(!showCancelForm)}
+                disabled={isCancelling || isUpdatingStatus || isRefunding || isDeleting}
               >
                 Cancel Order
               </Button>
@@ -125,6 +152,7 @@ const OrderViewModal = ({
                 variant="outline"
                 size="sm"
                 onClick={() => setShowRefundForm(!showRefundForm)}
+                disabled={isCancelling || isUpdatingStatus || isRefunding || isDeleting}
               >
                 Create Refund
               </Button>
@@ -132,10 +160,27 @@ const OrderViewModal = ({
             <Button
               variant="destructive"
               size="sm"
-              onClick={() => onDelete(order._id)}
+              onClick={async () => {
+                setIsDeleting(true);
+                try {
+                  await onDelete(order._id);
+                } finally {
+                  setIsDeleting(false);
+                }
+              }}
+              disabled={isDeleting || isCancelling || isUpdatingStatus || isRefunding}
             >
-              <Trash2 size={16} className="mr-1" />
-              Delete
+              {isDeleting ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-1"></div>
+                  Deleting...
+                </>
+              ) : (
+                <>
+                  <Trash2 size={16} className="mr-1" />
+                  Delete
+                </>
+              )}
             </Button>
           </div>
         </div>
@@ -154,11 +199,26 @@ const OrderViewModal = ({
                   rows={3}
                 />
                 <div className="flex justify-end space-x-2">
-                  <Button variant="outline" onClick={() => setShowCancelForm(false)}>
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setShowCancelForm(false)}
+                    disabled={isCancelling}
+                  >
                     Cancel
                   </Button>
-                  <Button variant="destructive" onClick={handleCancelOrder}>
-                    Confirm Cancellation
+                  <Button 
+                    variant="destructive" 
+                    onClick={handleCancelOrder}
+                    disabled={isCancelling}
+                  >
+                    {isCancelling ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                        Cancelling...
+                      </>
+                    ) : (
+                      'Confirm Cancellation'
+                    )}
                   </Button>
                 </div>
               </div>
@@ -212,11 +272,26 @@ const OrderViewModal = ({
                   />
                 </div>
                 <div className="flex justify-end space-x-2">
-                  <Button variant="outline" onClick={() => setShowRefundForm(false)}>
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setShowRefundForm(false)}
+                    disabled={isRefunding}
+                  >
                     Cancel
                   </Button>
-                  <Button variant="default" onClick={handleRefundOrder}>
-                    Create Refund
+                  <Button 
+                    variant="default" 
+                    onClick={handleRefundOrder}
+                    disabled={isRefunding}
+                  >
+                    {isRefunding ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                        Processing...
+                      </>
+                    ) : (
+                      'Create Refund'
+                    )}
                   </Button>
                 </div>
               </div>
@@ -304,10 +379,14 @@ const OrderViewModal = ({
                 </div>
                 {order.delivery.type === 'delivery' && (
                   <>
-                    <div>
-                      <p className="text-sm text-gray-600">Delivery Fee</p>
-                      <p className="font-medium">£{order.pricing.deliveryFee.toFixed(2)}</p>
-                    </div>
+                <div>
+                  <p className="text-sm text-gray-600">Delivery Fee</p>
+                  {order.pricing.deliveryFee === 0 ? (
+                    <p className="font-medium text-green-600">FREE</p>
+                  ) : (
+                    <p className="font-medium">£{order.pricing.deliveryFee.toFixed(2)}</p>
+                  )}
+                </div>
                     <div className="col-span-2">
                       <p className="text-sm text-gray-600">Address</p>
                       <p className="font-medium">{order.delivery.address}</p>
@@ -358,10 +437,16 @@ const OrderViewModal = ({
                   <span>Subtotal:</span>
                   <span>£{order.pricing.subtotal.toFixed(2)}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span>Delivery Fee:</span>
-                  <span>£{order.pricing.deliveryFee.toFixed(2)}</span>
-                </div>
+                {order.delivery.type === 'delivery' && (
+                  <div className="flex justify-between">
+                    <span>Delivery Fee:</span>
+                    {order.pricing.deliveryFee === 0 ? (
+                      <span className="text-green-600 font-medium">FREE</span>
+                    ) : (
+                      <span>£{order.pricing.deliveryFee.toFixed(2)}</span>
+                    )}
+                  </div>
+                )}
                 <div className="flex justify-between font-bold text-lg border-t pt-2">
                   <span>Total:</span>
                   <span>£{order.pricing.total.toFixed(2)}</span>
@@ -401,9 +486,16 @@ const OrderViewModal = ({
                 </select>
                 <Button 
                   onClick={handleStatusChange}
-                  disabled={newStatus === order.status}
+                  disabled={newStatus === order.status || isUpdatingStatus}
                 >
-                  {newStatus === order.status ? 'No Change' : 'Update Status'}
+                  {isUpdatingStatus ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      Updating...
+                    </>
+                  ) : (
+                    newStatus === order.status ? 'No Change' : 'Update Status'
+                  )}
                 </Button>
               </div>
             </div>
@@ -441,9 +533,16 @@ const OrderViewModal = ({
                 </select>
                 <Button 
                   onClick={handlePaymentStatusChange}
-                  disabled={newPaymentStatus === (order.payment?.status || 'pending')}
+                  disabled={newPaymentStatus === (order.payment?.status || 'pending') || isUpdatingPayment}
                 >
-                  {newPaymentStatus === (order.payment?.status || 'pending') ? 'No Change' : 'Update Payment Status'}
+                  {isUpdatingPayment ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      Updating...
+                    </>
+                  ) : (
+                    newPaymentStatus === (order.payment?.status || 'pending') ? 'No Change' : 'Update Payment Status'
+                  )}
                 </Button>
               </div>
             </div>

@@ -8,6 +8,7 @@ class RealtimeService {
     this.reconnectAttempts = 0;
     this.maxReconnectAttempts = 5;
     this.reconnectDelay = 1000;
+    this.maxReconnectDelay = 30000; // Max 30 seconds between reconnection attempts
     this.pollingInterval = null;
     this.isPolling = false;
     this.lastOrderTimestamp = null;
@@ -298,7 +299,10 @@ class RealtimeService {
     }
 
     this.reconnectAttempts++;
-    const delay = this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1);
+    const delay = Math.min(
+      this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1),
+      this.maxReconnectDelay
+    );
     
     console.log(`Attempting to reconnect in ${delay}ms (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
     
@@ -408,21 +412,22 @@ class RealtimeService {
         break;
         
       case 'order.updated':
+        // Update cached count if transitioning from pending
         if (data.previousStatus === 'pending' && data.order.status !== 'pending') {
-          // Update cached count immediately
           this.lastPendingCount = Math.max(0, (this.lastPendingCount || 0) - 1);
           this.lastPendingCountTime = Date.now();
-          
-          this.emit('order.updated', {
-            orderId: data.order.orderId,
-            previousStatus: data.previousStatus,
-            newStatus: data.order.status,
-            orderData: data.order
-          });
           
           // Emit updated count
           this.emit('pending.count', this.lastPendingCount);
         }
+        
+        // Always emit order.updated for ALL status changes
+        this.emit('order.updated', {
+          orderId: data.order.orderId,
+          previousStatus: data.previousStatus,
+          newStatus: data.order.status,
+          orderData: data.order
+        });
         break;
         
       case 'pending.count':

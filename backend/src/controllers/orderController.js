@@ -16,6 +16,7 @@ const createOrder = async (req, res) => {
       deliveryFee // Accept calculated delivery fee from frontend
     } = req.body;
 
+
     // Validate required fields
     if (!customer?.email || !customer?.phoneNumber) {
       return res.status(400).json({
@@ -103,6 +104,7 @@ const createOrder = async (req, res) => {
     // Use provided delivery fee or calculate default (fallback for backwards compatibility)
     const finalDeliveryFee = deliveryFee !== undefined ? deliveryFee : (delivery.type === 'delivery' ? 2.0 : 0);
     const total = subtotal + finalDeliveryFee;
+
     
     // Determine payment method - use provided method or default based on delivery type
     let finalPaymentMethod = paymentMethod;
@@ -145,6 +147,7 @@ const createOrder = async (req, res) => {
 
     const order = new Order(orderData);
     await order.save();
+
 
     // Create Stripe payment intent if payment method is Stripe
     let stripePaymentIntent = null;
@@ -199,6 +202,7 @@ const createOrder = async (req, res) => {
       };
     }
 
+
     res.status(201).json({
       success: true,
       message: 'Order created successfully',
@@ -243,8 +247,7 @@ const getOrders = async (req, res) => {
       .sort(sort)
       .skip(skip)
       .limit(parseInt(limit))
-      .populate('items.itemId', 'name price imageUrl')
-      .lean();
+      .lean(); // Removed .populate() - items data is already embedded
 
     const total = await Order.countDocuments(filter);
 
@@ -287,6 +290,7 @@ const getOrderById = async (req, res) => {
       });
     }
 
+
     res.json({
       success: true,
       data: order
@@ -316,8 +320,7 @@ const getOrdersByCustomer = async (req, res) => {
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(parseInt(limit))
-      .populate('items.itemId', 'name price imageUrl')
-      .lean();
+      .lean(); // Removed .populate() - items data is already embedded
 
     const total = await Order.countDocuments(filter);
 
@@ -437,8 +440,9 @@ const updateOrderStatus = async (req, res) => {
 
     await order.updateStatus(status);
 
-    // Emit realtime notification for order status change
+    // Emit realtime notifications for order status change
     realtimeService.onOrderUpdated(order, currentStatus);
+    realtimeService.onOrderStatusChanged(order.orderId, status, currentStatus);
 
     logger.info(`Order status updated: ${orderId}`, {
       orderId,
@@ -708,6 +712,10 @@ const updatePaymentStatus = async (req, res) => {
     const oldPaymentStatus = order.payment.status;
     order.payment.status = paymentStatus;
     await order.save();
+
+    // Emit realtime notifications for payment status change
+    realtimeService.onOrderUpdated(order, order.status);
+    realtimeService.onOrderStatusChanged(order.orderId, order.status, order.status);
 
     logger.info(`Payment status updated: ${order.orderId}`, {
       orderId: order.orderId,

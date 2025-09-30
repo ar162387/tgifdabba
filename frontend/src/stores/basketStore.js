@@ -14,50 +14,58 @@ export const useBasketStore = create(
       currentMenuDay: null, // Track which day's menu the cart belongs to
       postcode: '', // User's postcode for delivery calculation
       deliveryInfo: null, // Delivery information from geocoding service
+      deliveryFee: 0, // Calculated delivery fee based on business rules
 
       // Actions
       addToCart: (item, menuDay = null) => {
         set((state) => {
+          let newState;
+          
           // If menu day has changed, clear the cart first
           if (menuDay && state.currentMenuDay && state.currentMenuDay !== menuDay) {
-            return {
+            newState = {
               ...state,
               cart: [{ ...item, quantity: 1 }],
               currentMenuDay: menuDay,
               lastActivity: Date.now()
             };
-          }
-          
-          const existingItem = state.cart.find(cartItem => cartItem._id === item._id);
-          
-          if (existingItem) {
-            return {
-              ...state,
-              cart: state.cart.map(cartItem =>
-                cartItem._id === item._id
-                  ? { ...cartItem, quantity: cartItem.quantity + 1 }
-                  : cartItem
-              ),
-              currentMenuDay: menuDay || state.currentMenuDay,
-              lastActivity: Date.now()
-            };
           } else {
-            return {
-              ...state,
-              cart: [...state.cart, { ...item, quantity: 1 }],
-              currentMenuDay: menuDay || state.currentMenuDay,
-              lastActivity: Date.now()
-            };
+            const existingItem = state.cart.find(cartItem => cartItem._id === item._id);
+            
+            if (existingItem) {
+              newState = {
+                ...state,
+                cart: state.cart.map(cartItem =>
+                  cartItem._id === item._id
+                    ? { ...cartItem, quantity: cartItem.quantity + 1 }
+                    : cartItem
+                ),
+                currentMenuDay: menuDay || state.currentMenuDay,
+                lastActivity: Date.now()
+              };
+            } else {
+              newState = {
+                ...state,
+                cart: [...state.cart, { ...item, quantity: 1 }],
+                currentMenuDay: menuDay || state.currentMenuDay,
+                lastActivity: Date.now()
+              };
+            }
           }
+          
+          // Recalculate delivery fee when cart changes
+          newState.deliveryFee = get().calculateDeliveryFeeInternal(newState);
+          return newState;
         });
       },
 
       removeFromCart: (itemId) => {
         set((state) => {
           const existingItem = state.cart.find(item => item._id === itemId);
+          let newState;
           
           if (existingItem && existingItem.quantity > 1) {
-            return {
+            newState = {
               ...state,
               cart: state.cart.map(item =>
                 item._id === itemId
@@ -67,44 +75,59 @@ export const useBasketStore = create(
               lastActivity: Date.now()
             };
           } else {
-            return {
-              ...state,
-              cart: state.cart.filter(item => item._id !== itemId),
-              lastActivity: Date.now()
-            };
-          }
-        });
-      },
-
-      updateQuantity: (itemId, quantity) => {
-        set((state) => {
-          if (quantity <= 0) {
-            return {
+            newState = {
               ...state,
               cart: state.cart.filter(item => item._id !== itemId),
               lastActivity: Date.now()
             };
           }
           
-          return {
-            ...state,
-            cart: state.cart.map(item =>
-              item._id === itemId
-                ? { ...item, quantity }
-                : item
-            ),
-            lastActivity: Date.now()
-          };
+          // Recalculate delivery fee when cart changes
+          newState.deliveryFee = get().calculateDeliveryFeeInternal(newState);
+          return newState;
+        });
+      },
+
+      updateQuantity: (itemId, quantity) => {
+        set((state) => {
+          let newState;
+          
+          if (quantity <= 0) {
+            newState = {
+              ...state,
+              cart: state.cart.filter(item => item._id !== itemId),
+              lastActivity: Date.now()
+            };
+          } else {
+            newState = {
+              ...state,
+              cart: state.cart.map(item =>
+                item._id === itemId
+                  ? { ...item, quantity }
+                  : item
+              ),
+              lastActivity: Date.now()
+            };
+          }
+          
+          // Recalculate delivery fee when cart changes
+          newState.deliveryFee = get().calculateDeliveryFeeInternal(newState);
+          return newState;
         });
       },
 
       clearCart: () => {
-        set((state) => ({
-          ...state,
-          cart: [],
-          currentMenuDay: null,
-          lastActivity: Date.now()
-        }));
+        set((state) => {
+          const newState = {
+            ...state,
+            cart: [],
+            currentMenuDay: null,
+            lastActivity: Date.now()
+          };
+          // Recalculate delivery fee when cart is cleared
+          newState.deliveryFee = get().calculateDeliveryFeeInternal(newState);
+          return newState;
+        });
       },
 
       // New method to validate cart against current menu day
@@ -132,11 +155,16 @@ export const useBasketStore = create(
       },
 
       setDeliveryOption: (option) => {
-        set((state) => ({
-          ...state,
-          deliveryOption: option,
-          lastActivity: Date.now()
-        }));
+        set((state) => {
+          const newState = {
+            ...state,
+            deliveryOption: option,
+            lastActivity: Date.now()
+          };
+          // Recalculate delivery fee when delivery option changes
+          newState.deliveryFee = get().calculateDeliveryFeeInternal(newState);
+          return newState;
+        });
       },
 
       setSpecialRequests: (requests) => {
@@ -156,11 +184,16 @@ export const useBasketStore = create(
       },
 
       setDeliveryInfo: (deliveryInfo) => {
-        set((state) => ({
-          ...state,
-          deliveryInfo: deliveryInfo,
-          lastActivity: Date.now()
-        }));
+        set((state) => {
+          const newState = {
+            ...state,
+            deliveryInfo: deliveryInfo,
+            lastActivity: Date.now()
+          };
+          // Recalculate delivery fee when delivery info changes
+          newState.deliveryFee = get().calculateDeliveryFeeInternal(newState);
+          return newState;
+        });
       },
 
       // Computed values (getters)
@@ -180,8 +213,10 @@ export const useBasketStore = create(
         return cartItem ? cartItem.quantity : 0;
       },
 
-      getDeliveryFee: () => {
-        const { deliveryOption, deliveryInfo, getCartTotal } = get();
+      // Internal calculation function (used by the store)
+      calculateDeliveryFeeInternal: (state = null) => {
+        const currentState = state || get();
+        const { deliveryOption, deliveryInfo } = currentState;
         
         // Collection is always free
         if (deliveryOption === 'collection') {
@@ -190,7 +225,7 @@ export const useBasketStore = create(
         
         // For delivery, check the new FREE delivery rules
         if (deliveryOption === 'delivery') {
-          const cartTotal = getCartTotal();
+          const cartTotal = currentState.cart.reduce((total, item) => total + (item.price * item.quantity), 0);
           
           // If no delivery info available, use default fee
           if (!deliveryInfo) {
@@ -216,6 +251,12 @@ export const useBasketStore = create(
         return 0;
       },
 
+      // Public getter that returns the stored delivery fee
+      getDeliveryFee: () => {
+        const { deliveryFee } = get();
+        return deliveryFee;
+      },
+
       getFinalTotal: () => {
         const { getCartTotal, getDeliveryFee } = get();
         return getCartTotal() + getDeliveryFee();
@@ -233,7 +274,8 @@ export const useBasketStore = create(
         lastActivity: state.lastActivity,
         currentMenuDay: state.currentMenuDay,
         postcode: state.postcode,
-        deliveryInfo: state.deliveryInfo
+        deliveryInfo: state.deliveryInfo,
+        deliveryFee: state.deliveryFee
       }),
     }
   )

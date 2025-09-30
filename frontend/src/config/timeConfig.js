@@ -3,11 +3,11 @@
 
 export const TIME_CONFIG = {
   // Time when ordering stops for the day (in 24-hour format)
-  ORDERING_STOP_HOUR: 9, // 12 PM
+  ORDERING_STOP_HOUR:16, // 12 PM
   ORDERING_STOP_MINUTE: 0,
   
   // Time when ordering starts for the next day (in 24-hour format)
-  ORDERING_START_HOUR: 11, // 2 PM
+  ORDERING_START_HOUR: 18, // 2 PM
   ORDERING_START_MINUTE: 0,
   
   // Duration of the ordering restriction window (in hours)
@@ -68,9 +68,9 @@ export const isOrderingDisabled = () => {
     
     let message = '';
     if (hoursUntilStart > 0) {
-      message = `Ordering will resume in ${hoursUntilStart}h ${minutesUntilStart}m (${TIME_CONFIG.TIMEZONE.split('/')[1]} time)`;
+      message = `Ordering will resume in ${hoursUntilStart}h ${minutesUntilStart}m `;
     } else {
-      message = `Ordering will resume in ${minutesUntilStart} minutes (${TIME_CONFIG.TIMEZONE.split('/')[1]} time)`;
+      message = `Ordering will resume in ${minutesUntilStart} minutes `;
     }
     
     return { disabled: true, message };

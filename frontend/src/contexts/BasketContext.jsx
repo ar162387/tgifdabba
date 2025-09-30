@@ -26,6 +26,7 @@ export function BasketProvider({ children }) {
     currentMenuDay: store.currentMenuDay,
     postcode: store.postcode,
     deliveryInfo: store.deliveryInfo,
+    deliveryFee: store.deliveryFee,
     
     // Actions
     addToCart: store.addToCart,

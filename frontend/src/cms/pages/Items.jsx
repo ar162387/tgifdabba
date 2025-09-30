@@ -821,6 +821,17 @@ const SearchInput = ({ value, onChange }) => {
 
 // Memoized table row component for better performance
 const ItemTableRow = React.memo(({ item, onEdit, onDelete, onToggleStatus }) => {
+  const [isTogglingStatus, setIsTogglingStatus] = React.useState(false);
+
+  const handleToggleClick = async () => {
+    setIsTogglingStatus(true);
+    try {
+      await onToggleStatus(item._id);
+    } finally {
+      setIsTogglingStatus(false);
+    }
+  };
+
   return (
     <TableRow>
       <TableCell>
@@ -857,13 +868,17 @@ const ItemTableRow = React.memo(({ item, onEdit, onDelete, onToggleStatus }) => 
       </TableCell>
       <TableCell>
         <button
-          onClick={() => onToggleStatus(item._id)}
-          className={`px-2 py-1 rounded-full text-sm font-medium ${
+          onClick={handleToggleClick}
+          disabled={isTogglingStatus}
+          className={`px-2 py-1 rounded-full text-sm font-medium inline-flex items-center ${
             item.active
               ? 'bg-green-100 text-green-800'
               : 'bg-red-100 text-red-800'
-          }`}
+          } ${isTogglingStatus ? 'opacity-50 cursor-not-allowed' : ''}`}
         >
+          {isTogglingStatus && (
+            <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-current mr-1"></div>
+          )}
           {item.active ? 'Active' : 'Inactive'}
         </button>
       </TableCell>

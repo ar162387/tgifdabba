@@ -36,21 +36,29 @@ const OrderConfirmation = () => {
     }
   };
 
-  const getEstimatedTime = () => {
-    if (order?.estimatedDeliveryTime) {
-      return new Date(order.estimatedDeliveryTime);
+  const getDeliveryDate = () => {
+    if (!order?.createdAt) return 'Unknown';
+    
+    const orderDate = new Date(order.createdAt);
+    const deliveryDate = new Date(orderDate);
+    
+    // If order is placed on Friday, Saturday, or Sunday, delivery is next Monday
+    // Otherwise, delivery is next day
+    const dayOfWeek = orderDate.getDay();
+    if (dayOfWeek >= 5 || dayOfWeek === 0) { // Friday (5), Saturday (6), Sunday (0)
+      // Next Monday
+      const daysUntilMonday = (8 - dayOfWeek) % 7;
+      deliveryDate.setDate(orderDate.getDate() + daysUntilMonday);
+    } else {
+      // Next day
+      deliveryDate.setDate(orderDate.getDate() + 1);
     }
     
-    // Default estimation
-    const now = new Date();
-    const estimatedMinutes = order?.delivery?.type === 'delivery' ? 45 : 30;
-    return new Date(now.getTime() + estimatedMinutes * 60 * 1000);
-  };
-
-  const formatTime = (date) => {
-    return date.toLocaleTimeString('en-GB', {
-      hour: '2-digit',
-      minute: '2-digit'
+    return deliveryDate.toLocaleDateString('en-GB', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric'
     });
   };
 
@@ -87,7 +95,6 @@ const OrderConfirmation = () => {
   }
 
   const statusInfo = getStatusInfo(order.status);
-  const estimatedTime = getEstimatedTime();
 
   return (
     <div className="min-h-screen bg-light-grey">
@@ -240,10 +247,14 @@ const OrderConfirmation = () => {
                     <span className="text-gray-600">Subtotal</span>
                     <span>£{order.pricing.subtotal.toFixed(2)}</span>
                   </div>
-                  {order.pricing.deliveryFee > 0 && (
+                  {order.delivery.type === 'delivery' && (
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-600">Delivery</span>
-                      <span>£{order.pricing.deliveryFee.toFixed(2)}</span>
+                      {order.pricing.deliveryFee === 0 ? (
+                        <span className="text-green-600 font-medium">FREE</span>
+                      ) : (
+                        <span>£{order.pricing.deliveryFee.toFixed(2)}</span>
+                      )}
                     </div>
                   )}
                   <div className="flex justify-between font-bold text-lg">
@@ -254,22 +265,36 @@ const OrderConfirmation = () => {
               </div>
             </div>
 
-            {/* Estimated Time */}
+            {/* Delivery Time */}
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
               <h2 className="text-xl font-bold text-charcoal mb-4">
-                {order.delivery.type === 'delivery' ? 'Estimated Delivery Time' : 'Estimated Collection Time'}
+                {order.delivery.type === 'delivery' ? 'Delivery Time' : 'Collection Time'}
               </h2>
               
-              <div className="text-center">
-                <div className="text-3xl font-bold text-primary-orange mb-2">
-                  {formatTime(estimatedTime)}
+              <div className="text-center space-y-3">
+                <div>
+                  <p className="text-sm text-gray-600 mb-1">{order.delivery.type === 'delivery' ? 'Delivery Date' : 'Collection Date'}</p>
+                  <p className="text-lg font-semibold text-gray-800">{getDeliveryDate()}</p>
                 </div>
-                <p className="text-sm text-gray-600">
-                  {order.delivery.type === 'delivery' 
-                    ? 'We\'ll deliver your order to your address' 
-                    : 'Your order will be ready for collection'
-                  }
-                </p>
+                
+                <div>
+                  <p className="text-sm text-gray-600 mb-1">{order.delivery.type === 'delivery' ? 'Time' : 'Collection Hours'}</p>
+                  <p className="text-2xl font-bold text-primary-orange">
+                    {order.delivery.type === 'delivery' 
+                      ? '6:00 PM - 8:00 PM' 
+                      : '11:00 AM - 1:00 PM, 6:00 PM - 8:00 PM'
+                    }
+                  </p>
+                </div>
+                
+                <div className="pt-3 border-t border-gray-200">
+                  <p className="text-sm text-gray-600">
+                    {order.delivery.type === 'delivery' 
+                      ? 'We\'ll deliver your order within the specified time window' 
+                      : 'Your order will be ready for collection during this time'
+                    }
+                  </p>
+                </div>
               </div>
             </div>
           </div>
