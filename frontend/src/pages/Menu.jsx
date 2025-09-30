@@ -506,12 +506,6 @@ const Menu = () => {
                   </p>
                 </div>
                 
-                <div>
-                  <p className="text-sm font-medium text-charcoal/70 mb-2">Free Delivery</p>
-                  <p className="text-lg font-bold text-charcoal">
-                    Free Delviery of minimum £30 outside 3.5 miles
-                  </p>
-                </div>
 
                 {deliveryOption === 'delivery' && (
                   <div className="pt-4 border-t border-charcoal/20">

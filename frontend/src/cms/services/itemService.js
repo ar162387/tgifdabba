@@ -45,5 +45,10 @@ export const itemService = {
   checkItemUsage: async (id) => {
     const response = await apiClient.get(`/items/${id}/usage`);
     return response.data;
+  },
+
+  bulkDeleteItems: async (itemIds) => {
+    const response = await apiClient.post('/items/bulk-delete', { itemIds });
+    return response.data;
   }
 };

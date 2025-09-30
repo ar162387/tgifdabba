@@ -90,3 +90,17 @@ export const useDeleteContact = () => {
     },
   });
 };
+
+// Bulk delete contacts mutation
+export const useBulkDeleteContacts = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: (contactIds) => contactService.bulkDeleteContacts(contactIds),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: contactKeys.lists() });
+      // Invalidate stats
+      queryClient.invalidateQueries({ queryKey: contactKeys.stats() });
+    },
+  });
+};

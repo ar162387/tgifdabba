@@ -1,14 +1,14 @@
 import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
-import { Search, Eye, CheckCircle, Clock, XCircle, Truck, Package } from 'lucide-react';
+import { Search, Eye, CheckCircle, Clock, XCircle, Truck, Package, Trash2 } from 'lucide-react';
 import { Button } from '../components/ui/Button';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/Table';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableCheckbox } from '../components/ui/Table';
 import { OptimizedTable, OptimizedTableHeader, OptimizedTableBody, OptimizedTableHead, OptimizedTableRow, OptimizedTableCell } from '../components/ui/OptimizedTable';
 import EmptyState from '../components/ui/EmptyState';
 import { TableSkeleton, FormSkeleton } from '../components/ui/Skeleton';
 import PerformanceMonitor from '../components/ui/PerformanceMonitor';
 import { useOrderModal } from '../contexts/OrderModalContext';
-import { useOrders } from '../hooks/useOrders';
+import { useOrders, useBulkDeleteOrders } from '../hooks/useOrders';
 import realtimeService from '../services/realtimeService';
 import globalRealtimeManager from '../services/globalRealtimeManager';
 import { realtimeDebug } from '../utils/realtimeDebug';
@@ -29,6 +29,7 @@ const Orders = () => {
   const [realtimeConnectionStatus, setRealtimeConnectionStatus] = useState('disconnected');
   const manualUpdatesRef = useRef(new Set()); // Track manual updates to prevent real-time conflicts
   const processingEventsRef = useRef(new Set()); // Track processing events to prevent duplicates
+  const [selectedOrders, setSelectedOrders] = useState(new Set());
   
   // Expose manualUpdatesRef globally so OrderModalContext can access it
   useEffect(() => {
@@ -151,6 +152,7 @@ const Orders = () => {
 
   // TanStack Query hooks - only one query needed since we do client-side filtering
   const { data: ordersData, isLoading, error } = useOrders(allOrdersQueryParams);
+  const bulkDeleteMutation = useBulkDeleteOrders();
 
   // Update allOrders when data changes and build orders map for efficient lookups
   useEffect(() => {
@@ -474,6 +476,57 @@ const Orders = () => {
     setCurrentPage(1); // Reset to first page when changing items per page
   }, []);
 
+  // Bulk selection handlers
+  const paginatedOrders = useMemo(() => 
+    orders.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage),
+    [orders, currentPage, itemsPerPage]
+  );
+
+  const handleSelectAll = useCallback((e) => {
+    if (e.target.checked) {
+      const newSelected = new Set(paginatedOrders.map(order => order._id));
+      setSelectedOrders(newSelected);
+    } else {
+      setSelectedOrders(new Set());
+    }
+  }, [paginatedOrders]);
+
+  const handleSelectOrder = useCallback((orderId) => {
+    setSelectedOrders(prev => {
+      const newSelected = new Set(prev);
+      if (newSelected.has(orderId)) {
+        newSelected.delete(orderId);
+      } else {
+        newSelected.add(orderId);
+      }
+      return newSelected;
+    });
+  }, []);
+
+  const handleBulkDelete = useCallback(async () => {
+    if (selectedOrders.size === 0) return;
+
+    if (window.confirm(`Are you sure you want to delete ${selectedOrders.size} order(s)? This action cannot be undone.`)) {
+      try {
+        await bulkDeleteMutation.mutateAsync(Array.from(selectedOrders));
+        toast.success(`${selectedOrders.size} order(s) deleted successfully`);
+        setSelectedOrders(new Set());
+      } catch (error) {
+        toast.error('Failed to delete orders');
+      }
+    }
+  }, [selectedOrders, bulkDeleteMutation]);
+
+  const isAllSelected = useMemo(() => 
+    paginatedOrders.length > 0 && paginatedOrders.every(order => selectedOrders.has(order._id)),
+    [paginatedOrders, selectedOrders]
+  );
+
+  const isSomeSelected = useMemo(() => 
+    paginatedOrders.some(order => selectedOrders.has(order._id)) && !isAllSelected,
+    [paginatedOrders, selectedOrders, isAllSelected]
+  );
+
   // Show skeleton loader while loading
   if (isLoading) {
     return (
@@ -526,6 +579,16 @@ const Orders = () => {
       <div className="flex justify-between items-center">
         <div className="flex items-center space-x-4">
           <h1 className="text-2xl font-bold text-gray-900">Orders</h1>
+          {selectedOrders.size > 0 && (
+            <Button
+              variant="destructive"
+              onClick={handleBulkDelete}
+              disabled={bulkDeleteMutation.isPending}
+            >
+              <Trash2 size={16} className="mr-2" />
+              Delete {selectedOrders.size} order{selectedOrders.size !== 1 ? 's' : ''}
+            </Button>
+          )}
           {/* Real-time connection status */}
           <div className="flex items-center space-x-2">
             <div className={`w-2 h-2 rounded-full ${
@@ -620,6 +683,15 @@ const Orders = () => {
       {orders.length > 0 ? (
         <OptimizedTable>
           <OptimizedTableHeader>
+            <OptimizedTableHead className="w-[50px]">
+              <TableCheckbox
+                checked={isAllSelected}
+                onChange={handleSelectAll}
+                ref={(el) => {
+                  if (el) el.indeterminate = isSomeSelected;
+                }}
+              />
+            </OptimizedTableHead>
             <OptimizedTableHead>Order ID</OptimizedTableHead>
             <OptimizedTableHead>Customer</OptimizedTableHead>
             <OptimizedTableHead>Delivery Type</OptimizedTableHead>
@@ -633,12 +705,12 @@ const Orders = () => {
             <OptimizedTableHead>Actions</OptimizedTableHead>
           </OptimizedTableHeader>
           <OptimizedTableBody>
-            {orders
-              .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
-              .map((order) => (
+            {paginatedOrders.map((order) => (
                 <OptimizedOrderTableRow
                   key={`${order._id}-${order.status}-${order.payment?.status || 'pending'}-${order._lastUpdated || order.updatedAt}`}
                   order={order}
+                  selected={selectedOrders.has(order._id)}
+                  onSelect={handleSelectOrder}
                   statusIcons={statusIcons}
                   statusColors={statusColors}
                   paymentStatusIcons={paymentStatusIcons}
@@ -888,13 +960,16 @@ const OrderTableRow = React.memo(({
     prevProps.order.customer.phoneNumber === nextProps.order.customer.phoneNumber &&
     prevProps.order.delivery.type === nextProps.order.delivery.type &&
     prevProps.order.items.length === nextProps.order.items.length &&
-    prevProps.order.payment?.method === nextProps.order.payment?.method
+    prevProps.order.payment?.method === nextProps.order.payment?.method &&
+    prevProps.selected === nextProps.selected
   );
 });
 
 // Optimized Order Table Row Component using OptimizedTableRow
 const OptimizedOrderTableRow = React.memo(({ 
-  order, 
+  order,
+  selected,
+  onSelect,
   statusIcons, 
   statusColors, 
   paymentStatusIcons,
@@ -954,7 +1029,14 @@ const OptimizedOrderTableRow = React.memo(({
       orderId={order._id}
       status={order.status}
       paymentStatus={order.payment?.status || 'pending'}
+      selected={selected}
     >
+      <TableCell>
+        <TableCheckbox
+          checked={selected}
+          onChange={() => onSelect(order._id)}
+        />
+      </TableCell>
       <OptimizedTableCell className="font-medium">
         {order.orderId}
       </OptimizedTableCell>
@@ -1024,22 +1106,6 @@ const OptimizedOrderTableRow = React.memo(({
         </div>
       </OptimizedTableCell>
     </OptimizedTableRow>
-  );
-}, (prevProps, nextProps) => {
-  // Custom comparison function for React.memo
-  // Only re-render if critical properties have changed
-  return (
-    prevProps.order._id === nextProps.order._id &&
-    prevProps.order.status === nextProps.order.status &&
-    prevProps.order.payment?.status === nextProps.order.payment?.status &&
-    prevProps.order.pricing.total === nextProps.order.pricing.total &&
-    prevProps.order.pricing.deliveryFee === nextProps.order.pricing.deliveryFee &&
-    prevProps.order.createdAt === nextProps.order.createdAt &&
-    prevProps.order.customer.email === nextProps.order.customer.email &&
-    prevProps.order.customer.phoneNumber === nextProps.order.customer.phoneNumber &&
-    prevProps.order.delivery.type === nextProps.order.delivery.type &&
-    prevProps.order.items.length === nextProps.order.items.length &&
-    prevProps.order.payment?.method === nextProps.order.payment?.method
   );
 });
 

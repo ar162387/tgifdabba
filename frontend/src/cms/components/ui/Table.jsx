@@ -38,11 +38,12 @@ const TableFooter = React.forwardRef(({ className, ...props }, ref) => (
 ));
 TableFooter.displayName = "TableFooter";
 
-const TableRow = React.memo(React.forwardRef(({ className, ...props }, ref) => (
+const TableRow = React.memo(React.forwardRef(({ className, selected, ...props }, ref) => (
   <tr
     ref={ref}
     className={cn(
-      "border-b transition-colors hover:bg-gray-50/50 data-[state=selected]:bg-gray-100",
+      "border-b transition-colors hover:bg-gray-50/50",
+      selected && "bg-blue-50 hover:bg-blue-100",
       className
     )}
     {...props}
@@ -54,7 +55,7 @@ const TableHead = React.memo(React.forwardRef(({ className, ...props }, ref) => 
   <th
     ref={ref}
     className={cn(
-      "h-12 px-4 text-left align-middle font-medium text-gray-500 [&:has([role=checkbox])]:pr-0",
+      "h-12 px-4 text-left align-middle font-medium text-gray-500 [&:has([role=checkbox])]:pr-0 [&:has([role=checkbox])]:w-[50px]",
       className
     )}
     {...props}
@@ -80,6 +81,18 @@ const TableCaption = React.forwardRef(({ className, ...props }, ref) => (
 ));
 TableCaption.displayName = "TableCaption";
 
+const TableCheckbox = React.memo(({ checked, onChange, ...props }) => (
+  <input
+    type="checkbox"
+    role="checkbox"
+    checked={checked}
+    onChange={onChange}
+    className="h-4 w-4 rounded border-gray-300 text-orange-600 focus:ring-orange-500 cursor-pointer"
+    {...props}
+  />
+));
+TableCheckbox.displayName = "TableCheckbox";
+
 export {
   Table,
   TableHeader,
@@ -89,4 +102,5 @@ export {
   TableRow,
   TableCell,
   TableCaption,
+  TableCheckbox,
 };

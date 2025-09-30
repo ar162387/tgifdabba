@@ -1,10 +1,10 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { Search, Eye, CheckCircle, Trash2 } from 'lucide-react';
 import { Button } from '../components/ui/Button';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/Table';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableCheckbox } from '../components/ui/Table';
 import EmptyState from '../components/ui/EmptyState';
 import { TableSkeleton, FormSkeleton } from '../components/ui/Skeleton';
-import { useContacts, useMarkContactAsRead, useDeleteContact } from '../hooks/useContacts';
+import { useContacts, useMarkContactAsRead, useDeleteContact, useBulkDeleteContacts } from '../hooks/useContacts';
 import toast from 'react-hot-toast';
 
 const Contacts = () => {
@@ -17,6 +17,7 @@ const Contacts = () => {
   const [selectedContact, setSelectedContact] = useState(null);
   const [filteredContacts, setFilteredContacts] = useState([]);
   const [allContacts, setAllContacts] = useState([]);
+  const [selectedContacts, setSelectedContacts] = useState(new Set());
 
   // Simple query parameters without search
   const queryParams = useMemo(() => ({
@@ -30,6 +31,7 @@ const Contacts = () => {
   const { data: contactsData, isLoading, error } = useContacts(queryParams);
   const markAsReadMutation = useMarkContactAsRead();
   const deleteMutation = useDeleteContact();
+  const bulkDeleteMutation = useBulkDeleteContacts();
 
   // Update allContacts when data changes
   useEffect(() => {
@@ -134,6 +136,57 @@ const Contacts = () => {
     setCurrentPage(1); // Reset to first page when changing items per page
   }, []);
 
+  // Bulk selection handlers
+  const paginatedContacts = useMemo(() => 
+    contacts.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage),
+    [contacts, currentPage, itemsPerPage]
+  );
+
+  const handleSelectAll = useCallback((e) => {
+    if (e.target.checked) {
+      const newSelected = new Set(paginatedContacts.map(contact => contact._id));
+      setSelectedContacts(newSelected);
+    } else {
+      setSelectedContacts(new Set());
+    }
+  }, [paginatedContacts]);
+
+  const handleSelectContact = useCallback((contactId) => {
+    setSelectedContacts(prev => {
+      const newSelected = new Set(prev);
+      if (newSelected.has(contactId)) {
+        newSelected.delete(contactId);
+      } else {
+        newSelected.add(contactId);
+      }
+      return newSelected;
+    });
+  }, []);
+
+  const handleBulkDelete = useCallback(async () => {
+    if (selectedContacts.size === 0) return;
+
+    if (window.confirm(`Are you sure you want to delete ${selectedContacts.size} contact(s)?`)) {
+      try {
+        await bulkDeleteMutation.mutateAsync(Array.from(selectedContacts));
+        toast.success(`${selectedContacts.size} contact(s) deleted successfully`);
+        setSelectedContacts(new Set());
+      } catch (error) {
+        toast.error('Failed to delete contacts');
+      }
+    }
+  }, [selectedContacts, bulkDeleteMutation]);
+
+  const isAllSelected = useMemo(() => 
+    paginatedContacts.length > 0 && paginatedContacts.every(contact => selectedContacts.has(contact._id)),
+    [paginatedContacts, selectedContacts]
+  );
+
+  const isSomeSelected = useMemo(() => 
+    paginatedContacts.some(contact => selectedContacts.has(contact._id)) && !isAllSelected,
+    [paginatedContacts, selectedContacts, isAllSelected]
+  );
+
   // Show skeleton loader while loading
   if (isLoading) {
     return (
@@ -168,7 +221,19 @@ const Contacts = () => {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-gray-900">Contacts</h1>
+        <div className="flex items-center space-x-4">
+          <h1 className="text-2xl font-bold text-gray-900">Contacts</h1>
+          {selectedContacts.size > 0 && (
+            <Button
+              variant="destructive"
+              onClick={handleBulkDelete}
+              disabled={bulkDeleteMutation.isPending}
+            >
+              <Trash2 size={16} className="mr-2" />
+              Delete {selectedContacts.size} contact{selectedContacts.size !== 1 ? 's' : ''}
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Filters */}
@@ -212,6 +277,15 @@ const Contacts = () => {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-[50px]">
+                  <TableCheckbox
+                    checked={isAllSelected}
+                    onChange={handleSelectAll}
+                    ref={(el) => {
+                      if (el) el.indeterminate = isSomeSelected;
+                    }}
+                  />
+                </TableHead>
                 <TableHead>Name</TableHead>
                 <TableHead>Phone</TableHead>
                 <TableHead>Status</TableHead>
@@ -220,12 +294,12 @@ const Contacts = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {contacts
-                .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
-                .map((contact) => (
+              {paginatedContacts.map((contact) => (
                   <ContactTableRow
                     key={contact._id}
                     contact={contact}
+                    selected={selectedContacts.has(contact._id)}
+                    onSelect={handleSelectContact}
                     formatDate={formatDate}
                     onViewDetails={() => setSelectedContact(contact)}
                     onMarkAsRead={handleMarkAsRead}
@@ -419,14 +493,22 @@ const ContactDetailsModal = ({ contact, onClose, onMarkAsRead }) => {
 
 // Memoized Contact Table Row Component
 const ContactTableRow = React.memo(({ 
-  contact, 
+  contact,
+  selected,
+  onSelect,
   formatDate, 
   onViewDetails, 
   onMarkAsRead, 
   onDelete 
 }) => {
   return (
-    <TableRow className={!contact.read ? 'bg-blue-50' : ''}>
+    <TableRow className={!contact.read ? 'bg-blue-50' : ''} selected={selected}>
+      <TableCell>
+        <TableCheckbox
+          checked={selected}
+          onChange={() => onSelect(contact._id)}
+        />
+      </TableCell>
       <TableCell className="font-medium">{contact.name}</TableCell>
       <TableCell>{contact.phone || 'No phone'}</TableCell>
       <TableCell>

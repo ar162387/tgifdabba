@@ -29,5 +29,10 @@ export const contactService = {
   getContactStats: async () => {
     const response = await apiClient.get('/contacts/stats');
     return response.data;
+  },
+
+  bulkDeleteContacts: async (contactIds) => {
+    const response = await apiClient.post('/contacts/bulk-delete', { contactIds });
+    return response.data;
   }
 };

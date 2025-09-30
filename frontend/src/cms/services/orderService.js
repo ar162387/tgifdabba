@@ -46,5 +46,10 @@ export const orderService = {
   createStripeRefund: async (id, amount = null, reason = 'requested_by_customer') => {
     const response = await apiClient.post(`/orders/${id}/refund`, { amount, reason });
     return response.data;
+  },
+
+  bulkDeleteOrders: async (orderIds) => {
+    const response = await apiClient.post('/orders/bulk-delete', { orderIds });
+    return response.data;
   }
 };

@@ -3,11 +3,11 @@ import { Plus, Search, Edit, Trash2, Eye, EyeOff, X, Upload, Image as ImageIcon 
 import { useForm } from 'react-hook-form';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/Table';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableCheckbox } from '../components/ui/Table';
 import Modal from '../components/ui/Modal';
 import EmptyState from '../components/ui/EmptyState';
 import { TableSkeleton, FormSkeleton } from '../components/ui/Skeleton';
-import { useItems, useCreateItem, useUpdateItem, useDeleteItem, useToggleItemStatus, useItemUsage } from '../hooks/useItems';
+import { useItems, useCreateItem, useUpdateItem, useDeleteItem, useToggleItemStatus, useItemUsage, useBulkDeleteItems } from '../hooks/useItems';
 import toast from 'react-hot-toast';
 
 const Items = () => {
@@ -26,6 +26,7 @@ const Items = () => {
   const [removeImage, setRemoveImage] = useState(false);
   const [deleteConfirmItem, setDeleteConfirmItem] = useState(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [selectedItems, setSelectedItems] = useState(new Set());
   const fileInputRef = useRef(null);
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm();
@@ -42,6 +43,7 @@ const Items = () => {
   const updateItemMutation = useUpdateItem();
   const deleteItemMutation = useDeleteItem();
   const toggleStatusMutation = useToggleItemStatus();
+  const bulkDeleteMutation = useBulkDeleteItems();
   const { data: itemUsage, isLoading: usageLoading } = useItemUsage(deleteConfirmItem?._id);
 
   // Update allItems when data changes
@@ -296,6 +298,65 @@ const Items = () => {
     setCurrentPage(1); // Reset to first page when changing items per page
   }, []);
 
+  // Bulk selection handlers
+  const paginatedItems = useMemo(() => 
+    items.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage),
+    [items, currentPage, itemsPerPage]
+  );
+
+  const handleSelectAll = useCallback((e) => {
+    if (e.target.checked) {
+      const newSelected = new Set(paginatedItems.map(item => item._id));
+      setSelectedItems(newSelected);
+    } else {
+      setSelectedItems(new Set());
+    }
+  }, [paginatedItems]);
+
+  const handleSelectItem = useCallback((itemId) => {
+    setSelectedItems(prev => {
+      const newSelected = new Set(prev);
+      if (newSelected.has(itemId)) {
+        newSelected.delete(itemId);
+      } else {
+        newSelected.add(itemId);
+      }
+      return newSelected;
+    });
+  }, []);
+
+  const handleBulkDelete = useCallback(async () => {
+    if (selectedItems.size === 0) return;
+
+    if (window.confirm(`Are you sure you want to delete ${selectedItems.size} item(s)?`)) {
+      try {
+        const response = await bulkDeleteMutation.mutateAsync(Array.from(selectedItems));
+        
+        if (response.data?.affectedMenus?.length > 0) {
+          const affectedDays = response.data.affectedMenus.map(menu => menu.dayOfWeek).join(', ');
+          toast.success(`${selectedItems.size} item(s) deleted successfully. Removed from ${response.data.affectedMenus.length} daily menu(s): ${affectedDays}`);
+        } else {
+          toast.success(`${selectedItems.size} item(s) deleted successfully`);
+        }
+        
+        setSelectedItems(new Set());
+        await refetch();
+      } catch (error) {
+        toast.error('Failed to delete items');
+      }
+    }
+  }, [selectedItems, bulkDeleteMutation, refetch]);
+
+  const isAllSelected = useMemo(() => 
+    paginatedItems.length > 0 && paginatedItems.every(item => selectedItems.has(item._id)),
+    [paginatedItems, selectedItems]
+  );
+
+  const isSomeSelected = useMemo(() => 
+    paginatedItems.some(item => selectedItems.has(item._id)) && !isAllSelected,
+    [paginatedItems, selectedItems, isAllSelected]
+  );
+
 
   // Show skeleton loader while loading
   if (isLoading) {
@@ -335,7 +396,19 @@ const Items = () => {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-gray-900">Items</h1>
+        <div className="flex items-center space-x-4">
+          <h1 className="text-2xl font-bold text-gray-900">Items</h1>
+          {selectedItems.size > 0 && (
+            <Button
+              variant="destructive"
+              onClick={handleBulkDelete}
+              disabled={bulkDeleteMutation.isPending}
+            >
+              <Trash2 size={16} className="mr-2" />
+              Delete {selectedItems.size} item{selectedItems.size !== 1 ? 's' : ''}
+            </Button>
+          )}
+        </div>
         <Button onClick={openModal}>
           <Plus size={20} className="mr-2" />
           Add Item
@@ -368,6 +441,15 @@ const Items = () => {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-[50px]">
+                  <TableCheckbox
+                    checked={isAllSelected}
+                    onChange={handleSelectAll}
+                    ref={(el) => {
+                      if (el) el.indeterminate = isSomeSelected;
+                    }}
+                  />
+                </TableHead>
                 <TableHead>Image</TableHead>
                 <TableHead>Name</TableHead>
                 <TableHead>Description</TableHead>
@@ -378,12 +460,12 @@ const Items = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {items
-                .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
-                .map((item) => (
+              {paginatedItems.map((item) => (
                   <ItemTableRow
                     key={item._id}
                     item={item}
+                    selected={selectedItems.has(item._id)}
+                    onSelect={handleSelectItem}
                     onEdit={handleEdit}
                     onDelete={handleDelete}
                     onToggleStatus={handleToggleStatus}
@@ -820,7 +902,7 @@ const SearchInput = ({ value, onChange }) => {
 };
 
 // Memoized table row component for better performance
-const ItemTableRow = React.memo(({ item, onEdit, onDelete, onToggleStatus }) => {
+const ItemTableRow = React.memo(({ item, selected, onSelect, onEdit, onDelete, onToggleStatus }) => {
   const [isTogglingStatus, setIsTogglingStatus] = React.useState(false);
 
   const handleToggleClick = async () => {
@@ -833,7 +915,13 @@ const ItemTableRow = React.memo(({ item, onEdit, onDelete, onToggleStatus }) => 
   };
 
   return (
-    <TableRow>
+    <TableRow selected={selected}>
+      <TableCell>
+        <TableCheckbox
+          checked={selected}
+          onChange={() => onSelect(item._id)}
+        />
+      </TableCell>
       <TableCell>
         {item.imageUrl ? (
           <img

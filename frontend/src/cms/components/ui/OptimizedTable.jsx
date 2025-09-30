@@ -44,25 +44,19 @@ const OptimizedTableRow = memo(({
   className, 
   orderId, 
   status, 
-  paymentStatus, 
+  paymentStatus,
+  selected,
   ...props 
 }) => (
   <TableRow 
     className={className} 
     key={`${orderId}-${status}-${paymentStatus}`}
+    selected={selected}
     {...props}
   >
     {children}
   </TableRow>
-), (prevProps, nextProps) => {
-  // Only re-render if critical order properties change
-  return (
-    prevProps.orderId === nextProps.orderId &&
-    prevProps.status === nextProps.status &&
-    prevProps.paymentStatus === nextProps.paymentStatus &&
-    prevProps.children === nextProps.children
-  );
-});
+));
 
 OptimizedTableRow.displayName = 'OptimizedTableRow';
 

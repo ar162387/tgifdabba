@@ -109,3 +109,21 @@ export const useToggleItemStatus = () => {
     },
   });
 };
+
+// Bulk delete items mutation
+export const useBulkDeleteItems = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: (itemIds) => itemService.bulkDeleteItems(itemIds),
+    onSuccess: (response) => {
+      // Invalidate items queries to refresh the list
+      queryClient.invalidateQueries({ queryKey: itemKeys.lists() });
+      
+      // Also invalidate daily menu queries since items might have been removed from menus
+      queryClient.invalidateQueries({ queryKey: ['dailyMenus'] });
+      
+      return response; // Return response so it can be used in the component
+    },
+  });
+};

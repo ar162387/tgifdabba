@@ -112,3 +112,17 @@ export const useUpdatePaymentStatus = () => {
     },
   });
 };
+
+// Bulk delete orders mutation
+export const useBulkDeleteOrders = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: (orderIds) => orderService.bulkDeleteOrders(orderIds),
+    onSuccess: () => {
+      // Invalidate orders list and stats
+      queryClient.invalidateQueries({ queryKey: orderKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: orderKeys.stats() });
+    },
+  });
+};
