@@ -169,7 +169,8 @@ const Checkout = () => {
           quantity: item.quantity
         })),
         specialRequests: specialRequests?.trim() || null,
-        paymentMethod: paymentMethod
+        paymentMethod: paymentMethod,
+        deliveryFee: getDeliveryFee() // Send calculated delivery fee to backend
       };
 
       // For Stripe payments, create payment intent first
@@ -237,7 +238,8 @@ const Checkout = () => {
             quantity: item.quantity
           })),
           specialRequests: specialRequests?.trim() || null,
-          paymentMethod: PAYMENT_METHODS.STRIPE
+          paymentMethod: PAYMENT_METHODS.STRIPE,
+          deliveryFee: getDeliveryFee() // Send calculated delivery fee to backend
         };
 
         // Create order with successful payment using the pre-generated order ID

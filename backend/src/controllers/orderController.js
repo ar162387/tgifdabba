@@ -12,7 +12,8 @@ const createOrder = async (req, res) => {
       delivery,
       items,
       specialRequests,
-      paymentMethod = 'cash_on_delivery' // Default to COD, can be 'stripe'
+      paymentMethod = 'cash_on_delivery', // Default to COD, can be 'stripe'
+      deliveryFee // Accept calculated delivery fee from frontend
     } = req.body;
 
     // Validate required fields
@@ -99,8 +100,9 @@ const createOrder = async (req, res) => {
       return total + (item.price * item.quantity);
     }, 0);
     
-    const deliveryFee = delivery.type === 'delivery' ? 2.0 : 0;
-    const total = subtotal + deliveryFee;
+    // Use provided delivery fee or calculate default (fallback for backwards compatibility)
+    const finalDeliveryFee = deliveryFee !== undefined ? deliveryFee : (delivery.type === 'delivery' ? 2.0 : 0);
+    const total = subtotal + finalDeliveryFee;
     
     // Determine payment method - use provided method or default based on delivery type
     let finalPaymentMethod = paymentMethod;
@@ -130,7 +132,7 @@ const createOrder = async (req, res) => {
       items: validatedItems,
       pricing: {
         subtotal,
-        deliveryFee,
+        deliveryFee: finalDeliveryFee,
         total
       },
       payment: {
@@ -949,7 +951,8 @@ const createOrderWithPayment = async (req, res) => {
       specialRequests,
       paymentIntentId,
       paymentIntentData,
-      orderId
+      orderId,
+      deliveryFee // Accept calculated delivery fee from frontend
     } = req.body;
 
     // Validate required fields
@@ -1033,8 +1036,9 @@ const createOrderWithPayment = async (req, res) => {
       return total + (item.price * item.quantity);
     }, 0);
     
-    const deliveryFee = delivery.type === 'delivery' ? 2.0 : 0;
-    const total = subtotal + deliveryFee;
+    // Use provided delivery fee or calculate default (fallback for backwards compatibility)
+    const finalDeliveryFee = deliveryFee !== undefined ? deliveryFee : (delivery.type === 'delivery' ? 2.0 : 0);
+    const total = subtotal + finalDeliveryFee;
 
     // Verify payment intent with Stripe
     const paymentVerification = await stripeService.verifyPaymentIntent(paymentIntentId, total);
@@ -1061,7 +1065,7 @@ const createOrderWithPayment = async (req, res) => {
       specialRequests: specialRequests?.trim() || null,
       pricing: {
         subtotal,
-        deliveryFee,
+        deliveryFee: finalDeliveryFee,
         total
       },
       payment: {
