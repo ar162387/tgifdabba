@@ -180,7 +180,7 @@ const Basket = () => {
           {!isOrderingAllowed && (
             <div className="bg-red-500/20 border-2 border-red-500 rounded-lg p-4 mt-4 max-w-2xl mx-auto">
               <div className="text-center">
-                <p className="text-red-700 font-bold text-lg mb-2">🚫 Ordering Temporarily Disabled</p>
+                
                 <p className="text-red-600 text-sm">{orderingStatusMessage}</p>
               </div>
             </div>

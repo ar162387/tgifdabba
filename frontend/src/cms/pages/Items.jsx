@@ -937,7 +937,7 @@ const ItemTableRow = React.memo(({ item, selected, onSelect, onEdit, onDelete, o
       </TableCell>
       <TableCell className="font-medium">{item.name}</TableCell>
       <TableCell className="max-w-xs truncate">{item.description}</TableCell>
-      <TableCell>${item.price}</TableCell>
+      <TableCell>£{item.price}</TableCell>
       <TableCell>
         {item.allergens && item.allergens.length > 0 ? (
           <div className="flex flex-wrap gap-1">

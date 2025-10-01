@@ -316,7 +316,7 @@ const MenuEditModal = ({ day, items, existingMenu, onSave, onClose }) => {
                         className="rounded"
                       />
                       <span className={`text-sm ${!item.active ? 'text-gray-600' : ''}`}>
-                        {item.name} - ${item.price}
+                        {item.name} - £{item.price}
                         {!item.active && <span className="ml-2 text-xs text-gray-500 bg-gray-200 px-1 rounded">Inactive</span>}
                       </span>
                     </label>

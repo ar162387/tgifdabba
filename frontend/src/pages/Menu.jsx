@@ -499,12 +499,21 @@ const Menu = () => {
             {/* Delivery Information */}
             <div className="bg-white/20 backdrop-blur-sm rounded-lg p-6 mb-8 max-w-2xl mx-auto">
               <div className="text-center space-y-4">
-                <div>
-                  <p className="text-sm font-medium text-charcoal/70 mb-2">Delivery Areas</p>
-                  <p className="text-lg font-bold text-charcoal">
-                    BR1 - BR7
-                  </p>
-                </div>
+                {deliveryOption === 'delivery' ? (
+                  <div>
+                    <p className="text-sm font-medium text-charcoal/70 mb-2">Delivery Areas</p>
+                    <p className="text-lg font-bold text-charcoal">
+                      BR1 - BR7
+                    </p>
+                  </div>
+                ) : (
+                  <div>
+                    <p className="text-sm font-medium text-charcoal/70 mb-2">Collection Time</p>
+                    <p className="text-lg font-bold text-charcoal">
+                      11:00 AM - 1:00 PM, 6:00 PM - 8:00 PM
+                    </p>
+                  </div>
+                )}
                 
 
                 {deliveryOption === 'delivery' && (
