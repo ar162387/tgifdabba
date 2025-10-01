@@ -11,9 +11,11 @@ const Profile = () => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [emailSaving, setEmailSaving] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
   
   const { register, handleSubmit, reset, formState: { errors } } = useForm();
+  const { register: registerEmail, handleSubmit: handleEmailSubmit, reset: resetEmail, formState: { errors: emailErrors } } = useForm();
 
   useEffect(() => {
     fetchUserProfile();
@@ -24,8 +26,10 @@ const Profile = () => {
   const fetchUserProfile = async () => {
     try {
       const response = await authService.getMe();
-      setUser(response.data);
-      reset(response.data);
+      const userData = response.data.user;
+      setUser(userData);
+      reset(userData);
+      resetEmail({ email: userData.email });
     } catch (error) {
       toast.error('Failed to fetch profile');
     } finally {
@@ -37,13 +41,31 @@ const Profile = () => {
     setSaving(true);
     try {
       const response = await authService.updateProfile(data);
-      setUser(response.data);
-      authService.setUser(response.data);
-      toast.success('Profile updated successfully');
+      const userData = response.data;
+      setUser(userData);
+      authService.setUser(userData);
+      toast.success('Password updated successfully');
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Failed to update profile');
+      toast.error(error.response?.data?.message || 'Failed to update password');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const onEmailSubmit = async (data) => {
+    setEmailSaving(true);
+    try {
+      const response = await authService.updateProfile(data);
+      const userData = response.data;
+      setUser(userData);
+      authService.setUser(userData);
+      // Reset email form with new email
+      resetEmail({ email: userData.email });
+      toast.success('Email updated successfully');
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to update email');
+    } finally {
+      setEmailSaving(false);
     }
   };
 
@@ -70,56 +92,81 @@ const Profile = () => {
         <h1 className="text-2xl font-bold text-gray-900">Profile Settings</h1>
       </div>
 
-      {/* Profile Form */}
+      {/* Email Change Form */}
       <div className="bg-white rounded-lg shadow p-6">
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-          {/* Email */}
+        <h2 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
+          <Mail size={20} className="mr-2" />
+          Change Email Address
+        </h2>
+        
+        {/* Current Email Display */}
+        <div className="bg-gray-50 p-4 rounded-lg mb-4">
+          <h3 className="text-sm font-medium text-gray-700 mb-1">Current Email</h3>
+          <p className="text-sm text-gray-900">{user?.email || 'Loading...'}</p>
+        </div>
+
+        <form onSubmit={handleEmailSubmit(onEmailSubmit)} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              <Mail size={16} className="inline mr-2" />
-              Email Address
+              New Email Address
             </label>
             <Input
               type="email"
-              {...register('email', {
+              {...registerEmail('email', {
                 required: 'Email is required',
                 pattern: {
                   value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
                   message: 'Invalid email address'
                 }
               })}
-              placeholder="Enter your email"
+              placeholder="Enter new email address"
             />
-            {errors.email && (
-              <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>
+            {emailErrors.email && (
+              <p className="mt-1 text-sm text-red-600">{emailErrors.email.message}</p>
             )}
           </div>
+          <div className="flex justify-end">
+            <Button type="submit" disabled={emailSaving}>
+              <Save size={16} className="mr-2" />
+              {emailSaving ? 'Updating...' : 'Update Email'}
+            </Button>
+          </div>
+        </form>
+      </div>
 
+      {/* Password Change Form */}
+      <div className="bg-white rounded-lg shadow p-6">
+        <h2 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
+          <Lock size={20} className="mr-2" />
+          Change Password
+        </h2>
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           {/* Current Password */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              <Lock size={16} className="inline mr-2" />
               Current Password
             </label>
             <Input
               type="password"
-              {...register('currentPassword')}
-              placeholder="Enter current password (required to change password)"
+              {...register('currentPassword', {
+                required: 'Current password is required'
+              })}
+              placeholder="Enter current password"
             />
-            <p className="mt-1 text-sm text-gray-500">
-              Only required if you want to change your password
-            </p>
+            {errors.currentPassword && (
+              <p className="mt-1 text-sm text-red-600">{errors.currentPassword.message}</p>
+            )}
           </div>
 
           {/* New Password */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              <Lock size={16} className="inline mr-2" />
               New Password
             </label>
             <Input
               type="password"
               {...register('newPassword', {
+                required: 'New password is required',
                 minLength: {
                   value: 6,
                   message: 'Password must be at least 6 characters'
@@ -130,33 +177,13 @@ const Profile = () => {
             {errors.newPassword && (
               <p className="mt-1 text-sm text-red-600">{errors.newPassword.message}</p>
             )}
-            <p className="mt-1 text-sm text-gray-500">
-              Leave blank to keep current password
-            </p>
-          </div>
-
-          {/* User Info */}
-          <div className="bg-gray-50 p-4 rounded-lg">
-            <h3 className="text-sm font-medium text-gray-700 mb-2">Account Information</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-              <div>
-                <span className="text-gray-600">Role:</span>
-                <span className="ml-2 font-medium capitalize">{user?.role}</span>
-              </div>
-              <div>
-                <span className="text-gray-600">Member since:</span>
-                <span className="ml-2 font-medium">
-                  {user?.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'N/A'}
-                </span>
-              </div>
-            </div>
           </div>
 
           {/* Submit Button */}
           <div className="flex justify-end">
             <Button type="submit" disabled={saving}>
               <Save size={16} className="mr-2" />
-              {saving ? 'Saving...' : 'Save Changes'}
+              {saving ? 'Updating...' : 'Update Password'}
             </Button>
           </div>
         </form>
@@ -207,14 +234,6 @@ const Profile = () => {
         </div>
       </div>
 
-      {/* Security Notice */}
-      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-        <h3 className="text-sm font-medium text-yellow-800 mb-2">Security Notice</h3>
-        <p className="text-sm text-yellow-700">
-          For security reasons, you must enter your current password to change your email or password. 
-          All changes are logged and monitored.
-        </p>
-      </div>
     </div>
   );
 };
