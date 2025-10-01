@@ -120,10 +120,6 @@ const DailyMenu = () => {
       {/* Header */}
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold text-gray-900">Daily Menu</h1>
-        <Button onClick={() => setIsEditing(true)}>
-          <Plus size={20} className="mr-2" />
-          Manage Menu
-        </Button>
       </div>
 
       {/* Days Grid */}
@@ -287,7 +283,7 @@ const MenuEditModal = ({ day, items, existingMenu, onSave, onClose }) => {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="absolute inset-0 bg-gray-900 bg-opacity-20 backdrop-blur-sm" onClick={onClose} />
+      <div className="absolute inset-0 backdrop-blur-md" onClick={onClose} />
       <div className="relative bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
         <div className="p-6">
           <h2 className="text-xl font-semibold mb-4">
