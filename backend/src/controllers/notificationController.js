@@ -47,7 +47,7 @@ export const getRecentActivity = async (req, res, next) => {
         type: 'order',
         id: order._id,
         title: `New order from ${order.customer.email}`,
-        subtitle: `$${order.pricing.total} - ${order.status}`,
+        subtitle: `£${order.pricing.total} - ${order.status}`,
         timestamp: order.createdAt,
         read: order.read
       })),
