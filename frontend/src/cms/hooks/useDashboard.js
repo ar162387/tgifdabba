@@ -16,7 +16,7 @@ export const useDashboardStats = () => {
     queryKey: dashboardKeys.stats(),
     queryFn: async () => {
       const [ordersResponse, contactsResponse, notificationsResponse] = await Promise.all([
-        orderService.getOrderStats({ period: 'month' }), // Get stats for the month instead of today
+        orderService.getOrderStats({ period: 'all' }), // Get stats for all orders
         contactService.getContactStats(),
         notificationService.getNotificationCounters()
       ]);

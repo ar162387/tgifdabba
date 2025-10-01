@@ -43,29 +43,25 @@ const Dashboard = () => {
       title: 'Total Orders',
       value: statsData?.orders?.totalOrders || 0,
       icon: ShoppingCart,
-      color: 'bg-blue-500',
-      change: '+12%'
+      color: 'bg-blue-500'
     },
     {
       title: 'Pending Orders',
       value: statsData?.orders?.pendingOrders || 0,
       icon: Clock,
-      color: 'bg-yellow-500',
-      change: '+5%'
+      color: 'bg-yellow-500'
     },
     {
       title: 'Completed Orders',
       value: (statsData?.orders?.completedOrders || 0),
       icon: CheckCircle,
-      color: 'bg-green-500',
-      change: '+8%'
+      color: 'bg-green-500'
     },
     {
       title: 'New Contacts',
       value: statsData?.contacts?.unreadContacts || 0,
       icon: Users,
-      color: 'bg-purple-500',
-      change: '+3%'
+      color: 'bg-purple-500'
     }
   ], [statsData]);
 
@@ -205,10 +201,6 @@ const StatCard = React.memo(({ card }) => {
           <p className="text-sm font-medium text-gray-600">{card.title}</p>
           <p className="text-2xl font-bold text-gray-900">{card.value}</p>
         </div>
-      </div>
-      <div className="mt-4">
-        <span className="text-sm text-green-600 font-medium">{card.change}</span>
-        <span className="text-sm text-gray-500 ml-1">from last month</span>
       </div>
     </div>
   );

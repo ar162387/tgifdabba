@@ -537,57 +537,68 @@ const getOrderStats = async (req, res) => {
   try {
     const { period = 'today' } = req.query;
     
-    let startDate, endDate;
-    const now = new Date();
+    let matchStage = {};
     
-    switch (period) {
-      case 'today':
-        startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        endDate = new Date(startDate.getTime() + 24 * 60 * 60 * 1000);
-        break;
-      case 'week':
-        startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-        endDate = now;
-        break;
-      case 'month':
-        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-        endDate = now;
-        break;
-      default:
-        startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        endDate = new Date(startDate.getTime() + 24 * 60 * 60 * 1000);
+    // Only apply date filter if period is not 'all'
+    if (period !== 'all') {
+      let startDate, endDate;
+      const now = new Date();
+      
+      switch (period) {
+        case 'today':
+          startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+          endDate = new Date(startDate.getTime() + 24 * 60 * 60 * 1000);
+          break;
+        case 'week':
+          startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+          endDate = now;
+          break;
+        case 'month':
+          startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+          endDate = now;
+          break;
+        default:
+          startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+          endDate = new Date(startDate.getTime() + 24 * 60 * 60 * 1000);
+      }
+      
+      matchStage = {
+        createdAt: { $gte: startDate, $lt: endDate }
+      };
     }
 
-    const stats = await Order.aggregate([
-      {
-        $match: {
-          createdAt: { $gte: startDate, $lt: endDate }
-        }
-      },
-      {
-        $group: {
-          _id: null,
-          totalOrders: { $sum: 1 },
-          totalRevenue: { $sum: '$pricing.total' },
-          averageOrderValue: { $avg: '$pricing.total' },
-          deliveryOrders: {
-            $sum: { $cond: [{ $eq: ['$delivery.type', 'delivery'] }, 1, 0] }
-          },
-          collectionOrders: {
-            $sum: { $cond: [{ $eq: ['$delivery.type', 'collection'] }, 1, 0] }
-          },
-          pendingOrders: {
-            $sum: { $cond: [{ $eq: ['$status', 'pending'] }, 1, 0] }
-          },
-          confirmedOrders: {
-            $sum: { $cond: [{ $eq: ['$status', 'confirmed'] }, 1, 0] }
-          },
-          completedOrders: {
-            $sum: { $cond: [{ $in: ['$status', ['delivered', 'collected']] }, 1, 0] }
-          }
+    const pipeline = [];
+    
+    // Only add match stage if we have a filter
+    if (Object.keys(matchStage).length > 0) {
+      pipeline.push({ $match: matchStage });
+    }
+    
+    pipeline.push({
+      $group: {
+        _id: null,
+        totalOrders: { $sum: 1 },
+        totalRevenue: { $sum: '$pricing.total' },
+        averageOrderValue: { $avg: '$pricing.total' },
+        deliveryOrders: {
+          $sum: { $cond: [{ $eq: ['$delivery.type', 'delivery'] }, 1, 0] }
+        },
+        collectionOrders: {
+          $sum: { $cond: [{ $eq: ['$delivery.type', 'collection'] }, 1, 0] }
+        },
+        pendingOrders: {
+          $sum: { $cond: [{ $eq: ['$status', 'pending'] }, 1, 0] }
+        },
+        confirmedOrders: {
+          $sum: { $cond: [{ $eq: ['$status', 'confirmed'] }, 1, 0] }
+        },
+        completedOrders: {
+          $sum: { $cond: [{ $in: ['$status', ['delivered', 'collected']] }, 1, 0] }
         }
       }
-    ]);
+    });
+
+    const stats = await Order.aggregate(pipeline);
 
     const result = stats[0] || {
       totalOrders: 0,
