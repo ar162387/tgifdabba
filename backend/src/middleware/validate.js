@@ -127,6 +127,7 @@ export const validateOrderCreation = [
     .normalizeEmail()
     .withMessage('Valid customer email is required'),
   body('customer.phoneNumber')
+    .optional()
     .isLength({ min: 10, max: 15 })
     .withMessage('Phone number must be between 10 and 15 characters'),
   body('delivery.type')

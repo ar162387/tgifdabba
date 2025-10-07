@@ -4,6 +4,11 @@ import { useNavigate } from 'react-router-dom';
 const Footer = () => {
   const navigate = useNavigate();
 
+  const handleNavigate = (path) => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    navigate(path);
+  };
+
   return (
     <footer className="bg-black text-white py-14">
       <div className="max-w-6xl mx-auto px-6">
@@ -22,19 +27,19 @@ const Footer = () => {
           {/* Horizontal navigation links with theme colors */}
           <nav className="flex flex-wrap justify-center items-center gap-16 md:gap-20">
             <a 
-              onClick={() => navigate('/menu')}
+              onClick={() => handleNavigate('/menu')}
               className="footer-link text-lg font-semibold uppercase tracking-wide cursor-pointer"
             >
               Menu
             </a>
             <a 
-              onClick={() => navigate('/about')}
+              onClick={() => handleNavigate('/about')}
               className="footer-link text-lg font-semibold uppercase tracking-wide cursor-pointer"
             >
               About
             </a>
             <a 
-              onClick={() => navigate('/contact')}
+              onClick={() => handleNavigate('/contact')}
               className="footer-link text-lg font-semibold uppercase tracking-wide cursor-pointer"
             >
               Contact

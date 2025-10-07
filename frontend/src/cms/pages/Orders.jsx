@@ -411,7 +411,7 @@ const Orders = () => {
       filtered = filtered.filter(order => 
         order.orderId.toLowerCase().includes(searchLower) ||
         order.customer.email.toLowerCase().includes(searchLower) ||
-        order.customer.phoneNumber.toLowerCase().includes(searchLower) ||
+        (order.customer.phoneNumber && order.customer.phoneNumber.toLowerCase().includes(searchLower)) ||
         order.items.some(item => item.name.toLowerCase().includes(searchLower))
       );
     }
@@ -882,7 +882,9 @@ const OrderTableRow = React.memo(({
       <TableCell>
         <div>
           <div className="font-medium">{order.customer.email}</div>
-          <div className="text-sm text-gray-500">{order.customer.phoneNumber}</div>
+          {order.customer.phoneNumber && (
+            <div className="text-sm text-gray-500">{order.customer.phoneNumber}</div>
+          )}
         </div>
       </TableCell>
       <TableCell>
@@ -1043,7 +1045,9 @@ const OptimizedOrderTableRow = React.memo(({
       <OptimizedTableCell>
         <div>
           <div className="font-medium">{order.customer.email}</div>
-          <div className="text-sm text-gray-500">{order.customer.phoneNumber}</div>
+          {order.customer.phoneNumber && (
+            <div className="text-sm text-gray-500">{order.customer.phoneNumber}</div>
+          )}
         </div>
       </OptimizedTableCell>
       <OptimizedTableCell>

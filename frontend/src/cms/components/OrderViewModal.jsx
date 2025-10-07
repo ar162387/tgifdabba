@@ -310,13 +310,15 @@ const OrderViewModal = ({
                   <p className="text-sm text-gray-600">Email</p>
                   <p className="font-medium">{order.customer.email}</p>
                 </div>
-                <div>
-                  <p className="text-sm text-gray-600">Phone</p>
-                  <p className="font-medium flex items-center">
-                    <Phone size={16} className="mr-1" />
-                    {order.customer.phoneNumber}
-                  </p>
-                </div>
+                {order.customer.phoneNumber && (
+                  <div>
+                    <p className="text-sm text-gray-600">Phone</p>
+                    <p className="font-medium flex items-center">
+                      <Phone size={16} className="mr-1" />
+                      {order.customer.phoneNumber}
+                    </p>
+                  </div>
+                )}
                 <div>
                   <p className="text-sm text-gray-600">Order Date</p>
                   <p className="font-medium">

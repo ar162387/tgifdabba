@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import Button from '../components/ui/Button';
-import { orderService, getStatusInfo } from '../services/orderService';
+import { orderService } from '../services/orderService';
 
 const OrderConfirmation = () => {
   const navigate = useNavigate();
@@ -94,8 +94,6 @@ const OrderConfirmation = () => {
     );
   }
 
-  const statusInfo = getStatusInfo(order.status);
-
   return (
     <div className="min-h-screen bg-light-grey">
       {/* Header */}
@@ -124,21 +122,13 @@ const OrderConfirmation = () => {
               </svg>
             </div>
             <h1 className="text-2xl font-bold text-charcoal mb-2">Order Placed Successfully!</h1>
-            <p className="text-gray-600 mb-4">Thank you for your order. We'll send you a confirmation email shortly.</p>
+            <p className="text-gray-600 mb-4">Thank you for your order.</p>
             
             {/* Order ID */}
-            <div className="bg-gray-50 rounded-lg p-4 mb-4">
+            <div className="bg-gray-50 rounded-lg p-4">
               <p className="text-sm text-gray-600 mb-1">Order ID</p>
               <p className="text-lg font-bold text-charcoal font-mono">{order.orderId}</p>
             </div>
-
-            {/* Status */}
-            <div className="flex items-center justify-center gap-2 mb-4">
-              <span className={`px-3 py-1 rounded-full text-sm font-medium ${statusInfo.bgColor} ${statusInfo.color}`}>
-                {statusInfo.label}
-              </span>
-            </div>
-            <p className="text-sm text-gray-600">{statusInfo.description}</p>
           </div>
         </div>
 
@@ -153,7 +143,9 @@ const OrderConfirmation = () => {
                 <h3 className="font-medium text-gray-900 mb-2">Customer Information</h3>
                 <div className="text-sm text-gray-600 space-y-1">
                   <p><span className="font-medium">Email:</span> {order.customer.email}</p>
-                  <p><span className="font-medium">Phone:</span> {order.customer.phoneNumber}</p>
+                  {order.customer.phoneNumber && (
+                    <p><span className="font-medium">Phone:</span> {order.customer.phoneNumber}</p>
+                  )}
                 </div>
               </div>
 

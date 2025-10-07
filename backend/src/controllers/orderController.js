@@ -18,10 +18,10 @@ const createOrder = async (req, res) => {
 
 
     // Validate required fields
-    if (!customer?.email || !customer?.phoneNumber) {
+    if (!customer?.email) {
       return res.status(400).json({
         success: false,
-        message: 'Customer email and phone number are required'
+        message: 'Customer email is required'
       });
     }
 
@@ -124,7 +124,7 @@ const createOrder = async (req, res) => {
       orderId,
       customer: {
         email: customer.email.toLowerCase().trim(),
-        phoneNumber: customer.phoneNumber.trim()
+        phoneNumber: customer.phoneNumber?.trim() || undefined
       },
       delivery: {
         type: delivery.type,
@@ -975,10 +975,10 @@ const createOrderWithPayment = async (req, res) => {
     } = req.body;
 
     // Validate required fields
-    if (!customer?.email || !customer?.phoneNumber) {
+    if (!customer?.email) {
       return res.status(400).json({
         success: false,
-        message: 'Customer email and phone number are required'
+        message: 'Customer email is required'
       });
     }
 
@@ -1073,7 +1073,7 @@ const createOrderWithPayment = async (req, res) => {
       orderId,
       customer: {
         email: customer.email.trim().toLowerCase(),
-        phoneNumber: customer.phoneNumber.trim()
+        phoneNumber: customer.phoneNumber?.trim() || undefined
       },
       delivery: {
         type: delivery.type,

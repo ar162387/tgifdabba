@@ -106,10 +106,6 @@ const Checkout = () => {
   };
 
   const validateDelivery = () => {
-    if (!phoneNumber.trim()) {
-      alert('Please enter your phone number');
-      return false;
-    }
     if (deliveryOption === 'delivery') {
       if (!deliveryAddress.trim()) {
         alert('Please enter your delivery address');
@@ -160,7 +156,7 @@ const Checkout = () => {
       const orderData = {
         customer: {
           email: email.trim(),
-          phoneNumber: phoneNumber.trim()
+          ...(phoneNumber.trim() && { phoneNumber: phoneNumber.trim() })
         },
         delivery: {
           type: deliveryOption,
@@ -248,7 +244,7 @@ const Checkout = () => {
         const orderData = {
           customer: {
             email: email.trim(),
-            phoneNumber: phoneNumber.trim()
+            ...(phoneNumber.trim() && { phoneNumber: phoneNumber.trim() })
           },
           delivery: {
             type: deliveryOption,
@@ -401,9 +397,7 @@ const Checkout = () => {
                 {fieldErrors.email && (
                   <p className="text-red-600 text-sm mt-1">{fieldErrors.email}</p>
                 )}
-                <p className="text-sm text-gray-600">
-                  You'll receive receipts and notifications at this email.
-                </p>
+               
                 {!completedSteps.has(1) && (
                   <Button
                     onClick={handleContinue}
@@ -516,7 +510,7 @@ const Checkout = () => {
                           </div>
                           <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
-                              Phone Number
+                              Phone Number <span className="text-gray-400 text-xs">(Optional)</span>
                             </label>
                             <input
                               type="tel"
@@ -528,7 +522,7 @@ const Checkout = () => {
                                   setFieldErrors(prev => ({ ...prev, phoneNumber: null }));
                                 }
                               }}
-                              placeholder="07123 456789"
+                              placeholder="07123 456789 (optional)"
                               className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:border-transparent ${
                                 fieldErrors.phoneNumber 
                                   ? 'border-red-500 focus:ring-red-500' 
@@ -545,7 +539,7 @@ const Checkout = () => {
                       {deliveryOption === 'collection' && (
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Phone Number
+                            Phone Number <span className="text-gray-400 text-xs">(Optional)</span>
                           </label>
                           <input
                             type="tel"
@@ -557,7 +551,7 @@ const Checkout = () => {
                                 setFieldErrors(prev => ({ ...prev, phoneNumber: null }));
                               }
                             }}
-                            placeholder="07123 456789"
+                            placeholder="07123 456789 (optional)"
                             className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:border-transparent ${
                               fieldErrors.phoneNumber 
                                 ? 'border-red-500 focus:ring-red-500' 

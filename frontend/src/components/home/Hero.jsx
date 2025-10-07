@@ -1,7 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import CurvedLoop from './CurvedLoop';
-import Button from '../ui/Button';
 
 // Mobile-specific Hero component
 const MobileHero = () => {
@@ -38,13 +37,12 @@ const MobileHero = () => {
         {/* Order Now button */}
         <div className="px-4 pb-6">
           <div className="flex justify-center">
-            <Button 
-              variant="primary" 
-              size="large"
+            <button
               onClick={() => navigate('/menu')}
+              className="bg-accent-yellow text-primary-orange font-bold text-xl px-16 py-4 rounded-2xl border-4 border-accent-yellow hover:bg-accent-yellow/90 transition-all duration-300 uppercase tracking-wide shadow-lg hover:shadow-xl transform hover:scale-105"
             >
               Order Now
-            </Button>
+            </button>
           </div>
         </div>
         
@@ -130,13 +128,12 @@ const DesktopHero = () => {
                 
               {/* Order Now button */}
               <div className="animate-fade-in-up pt-4">
-                <Button 
-                  variant="primary" 
-                  size="large"
+                <button
                   onClick={() => navigate('/menu')}
+                  className="bg-accent-yellow text-primary-orange font-bold text-2xl px-20 py-5 rounded-2xl border-4 border-accent-yellow hover:bg-accent-yellow/90 transition-all duration-300 uppercase tracking-wide shadow-lg hover:shadow-xl transform hover:scale-105"
                 >
                   Order Now
-                </Button>
+                </button>
               </div>
               </div>
               

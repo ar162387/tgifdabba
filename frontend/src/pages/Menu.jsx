@@ -758,10 +758,12 @@ const Menu = () => {
                       <span>Subtotal:</span>
                       <span>£{getCartTotal().toFixed(2)}</span>
                     </div>
-                    {getDeliveryFee() > 0 && (
+                    {deliveryOption === 'delivery' && (
                       <div className="flex justify-between">
                         <span>Delivery:</span>
-                        <span>£{getDeliveryFee().toFixed(2)}</span>
+                        <span className={getDeliveryFee() === 0 ? 'text-green-600 font-medium' : ''}>
+                          {getDeliveryFee() === 0 ? 'FREE' : `£${getDeliveryFee().toFixed(2)}`}
+                        </span>
                       </div>
                     )}
                     <div className="flex justify-between font-bold text-lg border-t border-charcoal/30 pt-2">
